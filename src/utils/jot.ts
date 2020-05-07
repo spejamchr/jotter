@@ -109,7 +109,7 @@ export const funcAsArray = (func: Func): Func[] => {
 export const funcAsString = (func: Func): string =>
   funcAsArray(func)
     .map(funcAsNumber)
-    .map(mi => mi.map(String.fromCharCode).getOrElseValue("�"))
+    .map(mi => mi.map(String.fromCodePoint).getOrElseValue("�"))
     .join("");
 
 export const jotDecoder: Decoder<Jot> = new Decoder((value: any) => {
@@ -227,7 +227,7 @@ export const splitIndex = (pair: string): number => {
   return i;
 };
 
-export const findGroups = (pair: string): Maybe<[string, string]> => {
+export const findPair = (pair: string): Maybe<[string, string]> => {
   if (pair[0] !== "(" || pair.slice(-1) !== ")") return nothing();
 
   const inner = pair.slice(1, -1);
@@ -241,10 +241,6 @@ export const findGroups = (pair: string): Maybe<[string, string]> => {
     return nothing();
   }
 };
-
-const test = "(^n.^x.^y.(x ((n x) y))";
-console.log(`findGroups('${test}'): ${JSON.stringify(findGroups(test))}`);
-console.log(`findGroups('${test + " ^x.x)"}'): ${JSON.stringify(findGroups(test + " ^x.x)"))}`);
 
 export const lambDecoder: Decoder<Lamb> = new Decoder((value: any) => {
   if (typeof value !== "string") {
@@ -262,7 +258,7 @@ export const lambDecoder: Decoder<Lamb> = new Decoder((value: any) => {
     const matches = value.match(abstRegex) || [];
     return labstractionR(matches[1], matches[2]);
   } else if (applRegex.test(value)) {
-    return findGroups(value)
+    return findPair(value)
       .map(([first, second]) => lapplicationR(first, second))
       .getOrElse(() => err(`Invalid lambda application: "${value}"`));
   } else {
@@ -270,16 +266,21 @@ export const lambDecoder: Decoder<Lamb> = new Decoder((value: any) => {
   }
 });
 
-export const lambToString = (lamb: Lamb): string => {
+const lambToStringRec = (lamb: Lamb, second: boolean): string => {
   switch (lamb.kind) {
     case "lvariable":
       return lamb.value;
     case "labstraction":
-      return `^${lamb.vari.value}.${lambToString(lamb.body)}`;
+      return `^${lamb.vari.value}.${lambToStringRec(lamb.body, false)}`;
     case "lapplication":
-      return `(${lambToString(lamb.first)} ${lambToString(lamb.second)})`;
+      const e = `${lambToStringRec(lamb.first, false)} ${lambToStringRec(lamb.second, true)}`;
+      const abstr = e[0] === "^";
+      return second || abstr ? `(${e})` : `(${e})`;
   }
 };
+
+export const lambToExactString = (lamb: Lamb): string => lambToStringRec(lamb, false);
+export const lambToString = (lamb: Lamb): string => safeShort(lambToExactString(lamb));
 
 export interface Combinator {
   kind: "combinator";
@@ -297,12 +298,18 @@ export interface CApplication {
   second: Comb;
 }
 
-export const capplication = (first: string, second: string): Result<string, CApplication> =>
+export const capplication = (first: Comb, second: Comb): CApplication => ({
+  kind: "capplication",
+  first,
+  second
+});
+
+export const capplicationR = (first: string, second: string): Result<string, CApplication> =>
   combDecoder
     .decodeAny(first)
     .map(first => ({ first }))
     .assign("second", combDecoder.decodeAny(second))
-    .map<CApplication>(fs => ({ kind: "capplication", ...fs }));
+    .map(({ first, second }) => capplication(first, second));
 
 export type Comb = Combinator | CApplication;
 
@@ -314,29 +321,70 @@ export const combDecoder: Decoder<Comb> = new Decoder((value: any) => {
   if (value === "S" || value === "K" || value === "I") {
     return ok(combinator(value));
   }
+  // value = pairComb(value);
 
   const applRegex = /^\(.+\)$/i;
   if (applRegex.test(value)) {
-    return findGroups(value)
-      .map(([first, second]) =>
-        combDecoder
-          .decodeAny(first)
-          .map(first => ({ first }))
-          .assign("second", combDecoder.decodeAny(second))
-          .map<Comb>(fs => ({ kind: "capplication", ...fs }))
-      )
+    return findPair(value)
+      .map(([first, second]) => capplicationR(first, second))
       .getOrElse(() => err(`Invalid combinatory application: "${value}"`));
   }
   return err(`Invalid combinatory expression: "${value}"`);
 });
 
-export const combToString = (comb: Comb): string => {
+export const combToString = (comb: Comb, second?: boolean): string => {
   switch (comb.kind) {
     case "combinator":
       return comb.value;
     case "capplication":
-      return `(${combToString(comb.first)} ${combToString(comb.second)})`;
+      const e = `${combToString(comb.first, false)} ${combToString(comb.second, true)}`;
+      return second ? `(${e})` : `(${e})`;
   }
+};
+
+const findGroups = (expr: string): string[] => {
+  let groups: [number, number][] = [];
+  let i = 0;
+  let g = 0;
+  let inGroup = true;
+  let groupStart = 0;
+  let groupEnd: number;
+  while (i < expr.length) {
+    const c = expr[i];
+
+    if (inGroup) {
+      if (c === " " && g === 0) {
+        groupEnd = i;
+        groups.push([groupStart, groupEnd]);
+        inGroup = false;
+      }
+    } else {
+      if (c !== " ") {
+        groupStart = i;
+        inGroup = true;
+      }
+    }
+
+    if (c === "(") g++;
+    if (c === ")") g--;
+
+    i++;
+  }
+  if (expr.slice(-1) !== " ") groups.push([groupStart, i]);
+  return groups.map(([a, b]) => expr.slice(a, b));
+};
+
+// Take a Comb string and pair things up
+// "S K K (S K K)" => "(((S K) K) ((S K) K))
+export const pairComb = (expr: string): string => {
+  if (expr[0] === "(" && expr.slice(-1) === ")") {
+    expr = expr.slice(1, -1);
+  }
+  let groups = findGroups(expr);
+  if (groups.length > 1) {
+    groups = groups.map(pairComb);
+  }
+  return groups.reduce((s, g, i) => (i === 0 ? g : `(${s} ${g})`), "");
 };
 
 const combinatorToLamb = (comb: Combinator): Lamb => {
@@ -368,6 +416,7 @@ export const combToLamb = (comb: Comb): Lamb => {
 };
 
 export const lambToComb = (lamb: Lamb): Comb => {
+  console.log(`lambToComb(${JSON.stringify(lamb)})`);
   switch (lamb.kind) {
     case "lvariable":
       if (lamb.value === "S" || lamb.value === "K" || lamb.value === "I") {
@@ -377,22 +426,22 @@ export const lambToComb = (lamb: Lamb): Comb => {
         // throw `bad variable name: ${lamb.value}`;
       }
     case "lapplication":
-      return {
-        kind: "capplication",
-        first: lambToComb(lamb.first),
-        second: lambToComb(lamb.second)
-      };
+      return capplication(lambToComb(lamb.first), lambToComb(lamb.second));
     case "labstraction":
       switch (lamb.body.kind) {
         case "lvariable":
           if (lamb.vari.value === lamb.body.value) {
             return combinator("I");
           } else {
-            return { kind: "capplication", first: combinator("K"), second: lambToComb(lamb.body) };
+            return capplication(combinator("K"), lambToComb(lamb.body));
           }
         case "labstraction":
-          if (!new RegExp(`\\b${lamb.vari.value}\\b`).test(lambToString(lamb.body))) {
-            return { kind: "capplication", first: combinator("K"), second: lambToComb(lamb.body) };
+          console.log(
+            `!new RegExp(\`\\\\b${lamb.vari.value}\\\\b\`).test('${lambToExactString(lamb.body)})`
+          );
+          console.log(!new RegExp(`\\b${lamb.vari.value}\\b`).test(lambToExactString(lamb.body)));
+          if (!new RegExp(`\\b${lamb.vari.value}\\b`).test(lambToExactString(lamb.body))) {
+            return capplication(combinator("K"), lambToComb(lamb.body));
           } else {
             return lambToComb(
               labstractionR(lamb.vari.value, combToString(lambToComb(lamb.body)))
@@ -405,11 +454,8 @@ export const lambToComb = (lamb: Lamb): Comb => {
           const b = { ...lamb };
           a.body = lamb.body.first;
           b.body = lamb.body.second;
-          return {
-            kind: "capplication",
-            first: { kind: "capplication", first: combinator("S"), second: lambToComb(a) },
-            second: lambToComb(b)
-          };
+
+          return capplication(capplication(combinator("S"), lambToComb(a)), lambToComb(b));
       }
   }
 };
@@ -421,11 +467,9 @@ const handleCombinator = (comb: Combinator): Jot => {
     case "K":
       return [1, 1, 1, 0, 0];
     case "I":
-      return combToJot({
-        kind: "capplication",
-        first: { kind: "capplication", first: combinator("S"), second: combinator("K") },
-        second: combinator("K")
-      });
+      return combToJot(
+        capplication(capplication(combinator("S"), combinator("K")), combinator("K"))
+      );
   }
 };
 
@@ -449,7 +493,7 @@ const randWord = (length: number): string =>
     )
     .join("")
     .replace(/[0-9]/g, "")
-    .slice(0, 1);
+    .slice(0, 5);
 
 // Mangles variable names in expressions
 const m = (expr: string): string => {
@@ -459,6 +503,26 @@ const m = (expr: string): string => {
     mangled = mangled.replace(new RegExp(`${i}`, "g"), randWord(5));
   }
   return mangled;
+};
+
+// shortens variable names in lambda expressions without colliding
+const safeShort = (expr: string): string => {
+  const alphabet = "abcdefghijklmnopqrstuvwxyz";
+  let a = 0;
+  let l = alphabet[a];
+  const vars = (expr.match(/[a-z_]+/gi) || []).filter((v, i, a) => a.indexOf(v) === i).reverse();
+  let short = vars.reduce((a, v, i) => a.replace(new RegExp(`\\b${v}\\b`, "g"), String(i)), expr);
+  for (let i = vars.length - 1; i >= 0; i--) {
+    short = short.replace(new RegExp(`${i}`, "g"), l);
+    a += 1;
+    if (a === alphabet.length) {
+      a = 0;
+      l = `${l}${alphabet[a]}`;
+    } else {
+      l = `${l.slice(0, -2)}${alphabet[a]}`;
+    }
+  }
+  return short;
 };
 
 export const testLambToComb = (name: string, lamb: string) => {
@@ -487,15 +551,35 @@ const ZERO = "^x.^y.y";
 const ONE = "^x.^y.(x y)";
 const TWO = "^x.^y.(x (x y))";
 const THREE = "^x.^y.(x (x (x y)))";
-// const FOUR = "^x.^y.(x (x (x (x y))))";
+const FOUR = "^x.^y.(x (x (x (x y))))";
 const FIVE = "^x.^y.(x (x (x (x (x y)))))";
+const NINE = "^x.^y.(x (x (x (x (x (x (x (x (x y)))))))))";
+const TEN = "^x.^y.(x (x (x (x (x (x (x (x (x (x y))))))))))";
 
 const INCREMENT = "^n.^x.^y.(x ((n x) y))";
-// const PLUS = "^m.^n.^f.^x.((m f) ((n f) x))";
-// const MULT = "^m.^n.^f.^x.((m (n f)) x)";
-// const EXP = "^m.^n.(n m)";
+const PLUS = "^m.^n.^f.^x.((m f) ((n f) x))";
+const MULT = "^m.^n.^f.^x.((m (n f)) x)";
+const EXP = "^m.^n.(n m)";
 const DECREMENT = "^n.^f.^x.(((n ^g.^h.(h (g f))) ^u.x) ^u.u)";
 const SUBTRACT = `^m.^o.((o ${m(DECREMENT)}) m)`;
+
+// 128513
+// 10**5 + 2*10**4 + 8*10**3 + 5*10**2 + 13
+// 18**4 + 12**4 + 7**4 + 4*10**2
+const NUM = `((${m(PLUS)} ((${m(EXP)} ((${m(PLUS)} ((${m(EXP)} ${m(FOUR)}) ${m(TWO)})) ${m(
+  TWO
+)})) ${m(FOUR)})) ((${m(PLUS)} ((${m(EXP)} ((${m(PLUS)} ((${m(EXP)} ${m(TWO)}) ${m(THREE)})) ${m(
+  FOUR
+)})) ${m(FOUR)})) ((${m(PLUS)} ((${m(EXP)} ((${m(PLUS)} ${m(FIVE)}) ${m(TWO)})) ${m(FOUR)})) ((${m(
+  MULT
+)} ${m(FOUR)}) ((${m(EXP)} ${m(TEN)}) ${m(TWO)})))))`;
+console.log("[SJC] big number");
+console.log(
+  lambDecoder
+    .decodeAny(safeShort(NUM))
+    .map(lambToExactString)
+    .getOrElseValue("")
+);
 
 const TRUE_ = "^f.^s.f";
 const FALSE_ = "^f.^s.s";
@@ -538,8 +622,6 @@ const APPEND = `(${m(FOLD_RIGHT)} ${m(CONS)})`;
 const PUSH = `^value.(${m(APPEND)} ((${m(CONS)} value) ${m(EMPTY_LIST)}))`;
 // const REVERSE = `((${m(FOLD_RIGHT)} ${m(PUSH)}) ${m(EMPTY_LIST)})`;
 
-const NINE = "^x.^y.(x (x (x (x (x (x (x (x (x y)))))))))";
-const TEN = "^x.^y.(x (x (x (x (x (x (x (x (x (x y))))))))))";
 const B_ = TEN;
 const F_ = "^x.^y.(x (x (x (x (x (x (x (x (x (x (x y)))))))))))"; // 11
 const I_ = "^x.^y.(x (x (x (x (x (x (x (x (x (x (x (x y))))))))))))"; // 12
