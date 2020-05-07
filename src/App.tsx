@@ -97,6 +97,7 @@ function App() {
     <div className="App">
       <header className="App-header">
         <input
+          style={{ width: "50%" }}
           value={getLambStr()}
           onChange={e => {
             setLambStr(e.target.value);
@@ -104,6 +105,7 @@ function App() {
           }}
         />
         <input
+          style={{ width: "50%" }}
           value={getCombStr()}
           onChange={e => {
             setCombStr(e.target.value);
@@ -111,6 +113,7 @@ function App() {
           }}
         />
         <input
+          style={{ width: "50%" }}
           value={getJotStr()}
           onChange={e => {
             setJotStr(e.target.value);
@@ -118,6 +121,7 @@ function App() {
           }}
         />
         <input
+          style={{ width: "50%" }}
           type="number"
           value={parseInt(getJotStr(), 2)}
           onChange={e => {
