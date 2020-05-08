@@ -1,79 +1,70 @@
 import React, { useState } from "react";
 import "./App.css";
 import {
+  binToDec,
   combDecoder,
   combToJot,
   combToLamb,
   combToString,
+  decToBin,
   funcAsArray,
   funcAsBoolean,
   funcAsNumber,
   funcAsString,
+  jotFromString,
   jotToFunc,
+  jotToLamb,
   jotToString,
   lambDecoder,
   lambToComb,
-  lambToString,
-  jotDecoder,
-  jotToLamb
+  lambToString
 } from "./utils/jot";
 
 type Basis = "lamb" | "comb" | "jot";
 
 function App() {
   const [basis, setBasis] = useState<Basis>("lamb");
-  const [lambStr, setLambStr] = useState("");
-  const [combStr, setCombStr] = useState("");
-  const [jotStr, setJotStr] = useState("");
+  const [rawLambStr, setRawLambStr] = useState("");
+  const [rawCombStr, setRawCombStr] = useState("");
+  const [rawJotStr, setRawJotStr] = useState("");
 
-  const getLambStr = (): string => {
+  const lambStr: string = ((): string => {
     switch (basis) {
       case "lamb":
-        return lambStr;
+        return rawLambStr;
       case "comb":
         return combDecoder
-          .decodeAny(combStr)
+          .decodeAny(rawCombStr)
           .elseDo(console.error)
           .map(combToLamb)
           .map(lambToString)
           .getOrElseValue("");
       case "jot":
-        return jotDecoder
-          .decodeAny(jotStr)
-          .elseDo(console.error)
-          .map(jotToLamb)
-          .map(lambToString)
-          .getOrElseValue("");
+        return lambToString(jotToLamb(jotFromString(rawJotStr)));
     }
-  };
+  })();
 
-  const getCombStr = (): string => {
+  const combStr: string = ((): string => {
     switch (basis) {
       case "lamb":
         return lambDecoder
-          .decodeAny(lambStr)
+          .decodeAny(rawLambStr)
           .elseDo(console.error)
           .map(lambToComb)
           .map(combToString)
           .getOrElseValue("");
       case "comb":
-        return combStr;
+        return rawCombStr;
       case "jot":
-        return jotDecoder
-          .decodeAny(jotStr)
-          .elseDo(console.error)
-          .map(jotToLamb)
-          .map(lambToComb)
-          .map(combToString)
-          .getOrElseValue("");
+        return combToString(lambToComb(jotToLamb(jotFromString(rawJotStr))));
     }
-  };
+  })();
 
-  const getJotStr = (): string => {
+  const jotStr: string = ((): string => {
     switch (basis) {
       case "lamb":
         return lambDecoder
-          .decodeAny(lambStr)
+          .decodeAny(rawLambStr)
           .elseDo(console.error)
           .map(lambToComb)
           .map(combToJot)
@@ -81,99 +72,114 @@ function App() {
           .getOrElseValue("");
       case "comb":
         return combDecoder
-          .decodeAny(combStr)
+          .decodeAny(rawCombStr)
           .elseDo(console.error)
           .map(combToJot)
           .map(jotToString)
           .getOrElseValue("");
       case "jot":
-        return jotStr;
+        return rawJotStr;
     }
-  };
+  })();
 
-  const func = jotDecoder.decodeAny(getJotStr()).map(jotToFunc);
+  const func = jotToFunc(jotFromString(jotStr));
 
   return (
     <div className="App">
       <header className="App-header">
-        <input
-          style={{ width: "50%" }}
-          value={getLambStr()}
-          onChange={e => {
-            setLambStr(e.target.value);
-            setBasis("lamb");
-          }}
-        />
-        <input
-          style={{ width: "50%" }}
-          value={getCombStr()}
-          onChange={e => {
-            setCombStr(e.target.value);
-            setBasis("comb");
-          }}
-        />
-        <input
-          style={{ width: "50%" }}
-          value={getJotStr()}
-          onChange={e => {
-            setJotStr(e.target.value);
-            setBasis("jot");
-          }}
-        />
-        <input
-          style={{ width: "50%" }}
-          type="number"
-          value={parseInt(getJotStr(), 2)}
-          onChange={e => {
-            setJotStr(parseInt(e.target.value).toString(2));
-            setBasis("jot");
-          }}
-        />
+        <table style={{width: '90%'}}>
+          <tbody>
+            <tr>
+              <td style={{width: '20%'}}>Lambda Expression </td>
+              <td style={{width: '60%'}}>
+                <input
+                  style={{ width: "100%" }}
+                  value={lambStr}
+                  onChange={e => {
+                    setRawLambStr(e.target.value);
+                    setBasis("lamb");
+                  }}
+                />
+              </td>
+              <td style={{width: '20%'}}>(length: {lambStr.length})</td>
+            </tr>
+
+            <tr>
+              <td>Combinatory Logic</td>
+              <td>
+                <input
+                  style={{ width: "100%" }}
+                  value={combStr}
+                  onChange={e => {
+                    setRawCombStr(e.target.value);
+                    setBasis("comb");
+                  }}
+                />
+              </td>
+              <td>(length: {combStr.length})</td>
+            </tr>
+
+            <tr>
+              <td>Jot </td>
+              <td>
+                <input
+                  style={{ width: "100%" }}
+                  value={jotStr}
+                  onChange={e => {
+                    setRawJotStr(jotToString(jotFromString(e.target.value)));
+                    setBasis("jot");
+                  }}
+                />
+              </td>
+              <td>(length: {jotStr.length})</td>
+            </tr>
+
+            <tr>
+              <td>Decimal Jot </td>
+              <td>
+                <input
+                  style={{ width: "100%" }}
+                  value={jotStr ? binToDec(jotStr) : ''}
+                  onChange={e => {
+                    setRawJotStr(decToBin(e.target.value));
+                    setBasis("jot");
+                  }}
+                />
+              </td>
+              <td>(length: {binToDec(jotStr).length})</td>
+            </tr>
+          </tbody>
+        </table>
+
         <p>As boolean:</p>
         <code>
-          {func
-            .map(funcAsBoolean)
-            .map(mb => mb.map(String).getOrElseValue("not a boolean"))
-            .getOrElseValue("broke")}
+          {funcAsBoolean(func)
+            .map(String)
+            .getOrElseValue("not a boolean")}
         </code>
         <p>As number:</p>
         <code>
           N:{" "}
-          {func
-            .map(funcAsNumber)
-            .map(mn => mn.map(String).getOrElseValue("not a number"))
-            .getOrElseValue("broke")}
+          {funcAsNumber(func)
+            .map(String)
+            .getOrElseValue("not a number")}
         </code>
         <p>As string:</p>
-        <code>
-          S:{" "}
-          {func
-            .map(funcAsString)
-            .map(JSON.stringify)
-            .getOrElseValue("broke")}
-        </code>
+        <code>S: {JSON.stringify(funcAsString(func))}</code>
         <p>As array of numbers:</p>
         <code>
           A:{" "}
-          {func
-            .map(funcAsArray)
-            .map(a =>
-              a
-                .map(funcAsNumber)
-                .map(mn => mn.map(String).getOrElseValue("not a number"))
-                .join(", ")
-            )
-            .map(s => `[${s}]`)
-            .getOrElseValue("broke")}
+          {funcAsArray(func)
+            .map(funcAsNumber)
+            .map(mn => mn.map(String).getOrElseValue("not a number"))
+            .join(", ")}
         </code>
         <p>As array of strings:</p>
         <code>
           A:{" "}
-          {func
-            .map(funcAsArray)
-            .map(a => a.map(funcAsString))
-            .map(JSON.stringify)
-            .getOrElseValue("broke")}
+          {funcAsArray(func)
+            .map(funcAsString)
+            .map(s => JSON.stringify(s))}
         </code>
       </header>
     </div>

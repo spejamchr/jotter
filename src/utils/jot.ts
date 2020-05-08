@@ -11,9 +11,10 @@ const I: Func = x => x;
 
 const J1: Func = v => f => a => v(f(a));
 
-export const effect = (f: (func: Func) => void): Func => func => {
-  f(func);
-  return func;
+export const effect = (e: (func: Func) => void, f?: Func): Func => arg => {
+  f = f || (x => x);
+  e(arg);
+  return f(arg);
 };
 
 export const jotToFunc = (program: Jot): Func => program.reduce((v, b) => (b ? J1(v) : v(S)(K)), I);
@@ -88,15 +89,15 @@ export const funcAsBoolean = (func: Func): Maybe<boolean> => {
 export const funcAsNumber = (func: Func): Maybe<number> => {
   let n = 0;
   let valid = true;
-  const I0: Func = x => x;
+  const notNumber = effect(() => valid = false)
   func(
     effect(f => {
       n += 1;
-      if (f !== I0) {
+      if (f !== notNumber) {
         valid = false;
       }
     })
-  )(I0);
+  )(notNumber);
   return valid ? just(n) : nothing();
 };
 
@@ -111,6 +112,9 @@ export const funcAsString = (func: Func): string =>
     .map(funcAsNumber)
     .map(mi => mi.map(String.fromCodePoint).getOrElseValue("�"))
     .join("");
+
+// Always succeeds. Converts any character that's not 0 to 1.
+export const jotFromString = (str: string): Jot => str.split("").map(c => (c === "0" ? 0 : 1));
 
 export const jotDecoder: Decoder<Jot> = new Decoder((value: any) => {
   if (typeof value !== "string") {
@@ -416,7 +420,6 @@ export const combToLamb = (comb: Comb): Lamb => {
 };
 
 export const lambToComb = (lamb: Lamb): Comb => {
-  console.log(`lambToComb(${JSON.stringify(lamb)})`);
   switch (lamb.kind) {
     case "lvariable":
       if (lamb.value === "S" || lamb.value === "K" || lamb.value === "I") {
@@ -436,10 +439,6 @@ export const lambToComb = (lamb: Lamb): Comb => {
             return capplication(combinator("K"), lambToComb(lamb.body));
           }
         case "labstraction":
-          console.log(
-            `!new RegExp(\`\\\\b${lamb.vari.value}\\\\b\`).test('${lambToExactString(lamb.body)})`
-          );
-          console.log(!new RegExp(`\\b${lamb.vari.value}\\b`).test(lambToExactString(lamb.body)));
           if (!new RegExp(`\\b${lamb.vari.value}\\b`).test(lambToExactString(lamb.body))) {
             return capplication(combinator("K"), lambToComb(lamb.body));
           } else {
@@ -543,6 +542,72 @@ export const testLambToComb = (name: string, lamb: string) => {
           .elseDo(() => console.warn(`[error] Invalid Comb: ${name}`))
       );
   }, 500);
+};
+
+const oddsToOne = (dec: string): 0 | 1 => (Number(dec.slice(-1)) % 2 === 0 ? 0 : 1);
+
+const divByTwo = (dec: string): string => {
+  let newDec = "";
+  let add = 0;
+  let nextAdd = 0;
+  for (let i = 0; i < dec.length; i++) {
+    const chr = dec[i];
+    add = nextAdd;
+    nextAdd = oddsToOne(chr) ? 5 : 0;
+    newDec += String(Math.floor(Number(chr) / 2) + add);
+  }
+  return newDec[0] === "0" ? newDec.slice(1) : newDec;
+};
+
+const multByTwo = (dec: string): string => {
+  let newDec = "";
+  let carry = 0;
+  let nextCarry = 0;
+  for (let i = dec.length - 1; i >= 0; i--) {
+    const chr = dec[i];
+    carry = nextCarry;
+    nextCarry = Number(chr) > 4 ? 1 : 0;
+    newDec = String(Number(chr) * 2 + carry).slice(-1) + newDec;
+  }
+  if (nextCarry) {
+    newDec = String(nextCarry) + newDec;
+  }
+  return newDec;
+};
+
+const addOne = (dec: string): string => {
+  if (dec.slice(-1) === "9") {
+    return addOne(dec.slice(0, -1)) + "0";
+  } else {
+    return dec.slice(0, -1) + String(Number(dec.slice(-1)) + 1);
+  }
+};
+
+export const decToBin = (dec: string): string => {
+  if (!/^[0-9]*$/i.test(dec)) {
+    return "";
+  }
+  let stack = dec === "0" ? "0" : "";
+  while (dec !== "0" && dec !== "") {
+    stack = `${oddsToOne(dec)}${stack}`;
+    dec = divByTwo(dec);
+  }
+  return stack;
+};
+
+export const binToDec = (bin: string): string => {
+  if (!/^[01]*$/i.test(bin)) {
+    return "";
+  }
+  let stack = "0";
+  while (bin !== "") {
+    stack = multByTwo(stack);
+    if (bin[0] === "1") {
+      stack = addOne(stack);
+    }
+    bin = bin.slice(1);
+  }
+  return stack;
 };
 
 const Y = "^f.(^x.(f (x x)) ^x.(f (x x)))";
