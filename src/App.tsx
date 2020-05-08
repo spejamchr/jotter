@@ -1,23 +1,10 @@
 import React, { useState } from "react";
 import "./App.css";
-import {
-  binToDec,
-  combDecoder,
-  combToJot,
-  combToLamb,
-  combToPrettyString,
-  funcAsArray,
-  funcAsBoolean,
-  funcAsNumber,
-  funcAsString,
-  jotFromString,
-  jotToFunc,
-  jotToLamb,
-  jotToString,
-  lambDecoder,
-  lambToComb,
-  lambToString
-} from "./utils/jot";
+import { combDecoder, combToJot, combToLamb, combToPrettyString } from "./utils/comb";
+import { funcAsArray, funcAsBoolean, funcAsNumber, funcAsString } from "./utils/func";
+import { jotFromString, jotToFunc, jotToLamb, jotToString } from "./utils/jot";
+import { lambDecoder, lambToComb, lambToString } from "./utils/lamb";
+import { binToDec } from "./utils/tools";
 
 type Basis = "lamb" | "comb" | "jot";
 
