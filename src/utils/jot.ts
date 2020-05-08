@@ -2,6 +2,8 @@ import Decoder from "jsonous";
 import { err, ok, Result } from "resulty";
 import { Maybe, nothing, just } from "maybeasy";
 
+export const log = (s: string) => console.log("[SJC] ", s);
+
 type Jot = (0 | 1)[];
 type Func = (a: Func) => Func;
 
@@ -76,20 +78,17 @@ export const funcAsBoolean = (func: Func): Maybe<boolean> => {
   func(effect(() => bool.set(true)))(effect(() => bool.set(false)))(I);
   switch (bool.kind()) {
     case "not-set":
-      console.log("Boolean functions never ran");
+    case "over-set":
       return nothing();
     case "set":
       return bool.value();
-    case "over-set":
-      console.log("Boolean functions over-ran");
-      return nothing();
   }
 };
 
 export const funcAsNumber = (func: Func): Maybe<number> => {
   let n = 0;
   let valid = true;
-  const notNumber = effect(() => valid = false)
+  const notNumber = effect(() => (valid = false));
   func(
     effect(f => {
       n += 1;
@@ -246,23 +245,47 @@ export const findPair = (pair: string): Maybe<[string, string]> => {
   }
 };
 
+const validParens = (value: string): boolean => {
+  let i = 0;
+  let g = 0;
+  while (i < value.length) {
+    if (value[i] === "(") g++;
+    if (value[i] === ")") g--;
+    if (g < 0) return false;
+    i++;
+  }
+  return g === 0;
+};
+
 export const lambDecoder: Decoder<Lamb> = new Decoder((value: any) => {
   if (typeof value !== "string") {
     const errorMsg = `I expected to find a string but instead I found ${JSON.stringify(value)}`;
     return err(errorMsg);
   }
+  const invalidChars = value.match(/[^a-z _^.()]/gi);
+  if (invalidChars) {
+    return err(`Invalid character(s) in lambda expression: ${invalidChars.join(", ")}`);
+  }
+  if (!validParens(value)) {
+    return err("Unmatched paren(s)");
+  }
 
   const variRegex = /^[a-z_]+$/i;
   const abstRegex = /^\^([a-z_]+)\.(.+)$/i;
-  const applRegex = /^\(.+\)$/i;
+  const parenAbstRegex = /^\(\^([a-z_]+)\.(.+)\)$/i;
+  const parenApplRegex = /^\(.+ .+\)$/i;
+  const applRegex = /^.+ .+$/i;
 
   if (variRegex.test(value)) {
     return ok(lvariable(value));
   } else if (abstRegex.test(value)) {
     const matches = value.match(abstRegex) || [];
     return labstractionR(matches[1], matches[2]);
-  } else if (applRegex.test(value)) {
-    return findPair(value)
+  } else if (parenAbstRegex.test(value)) {
+    const matches = value.match(parenAbstRegex) || [];
+    return labstractionR(matches[1], matches[2]);
+  } else if (parenApplRegex.test(value) || applRegex.test(value)) {
+    return findPair(pairLamb(value))
       .map(([first, second]) => lapplicationR(first, second))
       .getOrElse(() => err(`Invalid lambda application: "${value}"`));
   } else {
@@ -270,20 +293,24 @@ export const lambDecoder: Decoder<Lamb> = new Decoder((value: any) => {
   }
 });
 
-const lambToStringRec = (lamb: Lamb, second: boolean): string => {
+const lambToStringRec = (lamb: Lamb, second: boolean, parent: Lamb): string => {
   switch (lamb.kind) {
     case "lvariable":
       return lamb.value;
-    case "labstraction":
-      return `^${lamb.vari.value}.${lambToStringRec(lamb.body, false)}`;
-    case "lapplication":
-      const e = `${lambToStringRec(lamb.first, false)} ${lambToStringRec(lamb.second, true)}`;
-      const abstr = e[0] === "^";
-      return second || abstr ? `(${e})` : `(${e})`;
+    case "labstraction": {
+      const e = `^${lamb.vari.value}.${lambToStringRec(lamb.body, false, lamb)}`;
+      const parenAbstr = parent.kind !== "labstraction";
+      return parenAbstr ? `(${e})` : e;
+    }
+    case "lapplication": {
+      const e =
+        lambToStringRec(lamb.first, false, lamb) + " " + lambToStringRec(lamb.second, true, lamb);
+      return second || lamb === parent ? `(${e})` : e;
+    }
   }
 };
 
-export const lambToExactString = (lamb: Lamb): string => lambToStringRec(lamb, false);
+export const lambToExactString = (lamb: Lamb): string => lambToStringRec(lamb, false, lamb);
 export const lambToString = (lamb: Lamb): string => safeShort(lambToExactString(lamb));
 
 export interface Combinator {
@@ -325,7 +352,14 @@ export const combDecoder: Decoder<Comb> = new Decoder((value: any) => {
   if (value === "S" || value === "K" || value === "I") {
     return ok(combinator(value));
   }
-  // value = pairComb(value);
+  value = value
+    .split("")
+    .filter(c => c !== " ")
+    .reduce(
+      (s, c, i) => (i === 0 ? c : s.slice(-1) === "(" || c === ")" ? `${s}${c}` : `${s} ${c}`),
+      ""
+    );
+  value = pairComb(value);
 
   const applRegex = /^\(.+\)$/i;
   if (applRegex.test(value)) {
@@ -342,9 +376,11 @@ export const combToString = (comb: Comb, second?: boolean): string => {
       return comb.value;
     case "capplication":
       const e = `${combToString(comb.first, false)} ${combToString(comb.second, true)}`;
-      return second ? `(${e})` : `(${e})`;
+      return second ? `(${e})` : `${e}`;
   }
 };
+
+export const combToPrettyString = (comb: Comb): string => combToString(comb).split(' ').join('')
 
 const findGroups = (expr: string): string[] => {
   let groups: [number, number][] = [];
@@ -362,11 +398,9 @@ const findGroups = (expr: string): string[] => {
         groups.push([groupStart, groupEnd]);
         inGroup = false;
       }
-    } else {
-      if (c !== " ") {
-        groupStart = i;
-        inGroup = true;
-      }
+    } else if (c !== " ") {
+      groupStart = i;
+      inGroup = true;
     }
 
     if (c === "(") g++;
@@ -390,6 +424,99 @@ export const pairComb = (expr: string): string => {
   }
   return groups.reduce((s, g, i) => (i === 0 ? g : `(${s} ${g})`), "");
 };
+
+export const hasOuterParens = (expr: string): boolean => {
+  if (expr[0] !== "(" || expr.slice(-1) !== ")") return false;
+
+  let i = 1;
+  let g = 1;
+  while (i < expr.length - 1) {
+    if (expr[i] === "(") g++;
+    if (expr[i] === ")") g--;
+    if (g === 0) return false;
+    i++;
+  }
+
+  return true;
+};
+
+// Only to be used for Lambda Applications (not abstractions or variables)
+const findLambGroups = (expr: string): string[] => {
+  let groups: [number, number][] = [];
+  let i = 0;
+  let g = 0;
+  let inGroup = true;
+  let groupStart = 0;
+  let groupEnd: number;
+  while (i < expr.length) {
+    const c = expr[i];
+
+    if (inGroup) {
+      if (c === " " && g === 0) {
+        groupEnd = i;
+        groups.push([groupStart, groupEnd]);
+        inGroup = false;
+      }
+    } else if (c === "^" && g === 0) {
+      // The rest of the string is an abstraction
+      groupStart = i;
+      i = expr.length;
+      break;
+    } else if (c !== " ") {
+      groupStart = i;
+      inGroup = true;
+    }
+
+    if (c === "(") g++;
+    if (c === ")") g--;
+
+    i++;
+  }
+  if (expr.slice(-1) !== " ") groups.push([groupStart, i]);
+  return groups.map(([a, b]) => expr.slice(a, b));
+};
+
+// Take a Lamb string and pair things up. Abstraction take precedence over application.
+// "(^a.^b.^c.a c (b c)) (^d.^e.d)" => "((^a.^b.^c.((a c) (b c))) (^d.^e.d))"
+export const pairLamb = (expr: string): string => {
+  if (hasOuterParens(expr)) {
+    expr = expr.slice(1, -1);
+  }
+
+  if (/^[a-z_]+$/i.test(expr)) {
+    return expr;
+  } else if (/^\^[a-z_]+\./i.test(expr)) {
+    let i = 0;
+    let inDef = true;
+    let inBody = false;
+    while (!inBody) {
+      i++;
+      if (inDef) {
+        inDef = expr[i] !== ".";
+      } else {
+        inDef = expr[i] === "^";
+        inBody = expr[i] !== "^";
+      }
+    }
+    return "(" + expr.slice(0, i) + pairLamb(expr.slice(i)) + ")";
+  } else {
+    let groups = findLambGroups(expr);
+    if (groups.length > 1) {
+      groups = groups.map(pairLamb);
+    }
+    return groups.reduce((s, g, i) => (i === 0 ? g : `(${s} ${g})`), "");
+  }
+};
+
+const testPairLamb = (s: string) => {
+  log(`pairLamb(${JSON.stringify(s)}): ${JSON.stringify(pairLamb(s))}`);
+};
+
+testPairLamb("x");
+testPairLamb("^x.x x");
+testPairLamb("^x.x");
+testPairLamb("x x");
+testPairLamb("(^a.^b.^c.a c (b c)) (^d.^e.d)");
 
 const combinatorToLamb = (comb: Combinator): Lamb => {
   const x = randWord(5);
@@ -527,7 +654,7 @@ const safeShort = (expr: string): string => {
 export const testLambToComb = (name: string, lamb: string) => {
   const mangled = m(lamb);
   window.setTimeout(() => {
-    console.log(`[test] ${name} before: ${lamb} -> ${mangled}`);
+    log(`[test] ${name} before: ${lamb} -> ${mangled}`);
     lambDecoder
       .decodeAny(mangled)
       .map(lambToComb)
@@ -538,7 +665,7 @@ export const testLambToComb = (name: string, lamb: string) => {
           .decodeAny(comb)
           .map(combToJot)
           .map(jotToString)
-          .do(v => console.log(`[test] ${name}: ${v.length}`))
+          .do(v => log(`[test] ${name}: ${v.length}`))
           .elseDo(() => console.warn(`[error] Invalid Comb: ${name}`))
       );
   }, 500);
@@ -638,8 +765,8 @@ const NUM = `((${m(PLUS)} ((${m(EXP)} ((${m(PLUS)} ((${m(EXP)} ${m(FOUR)}) ${m(T
 )})) ${m(FOUR)})) ((${m(PLUS)} ((${m(EXP)} ((${m(PLUS)} ${m(FIVE)}) ${m(TWO)})) ${m(FOUR)})) ((${m(
   MULT
 )} ${m(FOUR)}) ((${m(EXP)} ${m(TEN)}) ${m(TWO)})))))`;
-console.log("[SJC] big number");
-console.log(
+log("big number");
+log(
   lambDecoder
     .decodeAny(safeShort(NUM))
     .map(lambToExactString)
@@ -705,18 +832,18 @@ const TO_STRING = TO_DIGITS;
 export const YES = `((${m(CONS)} ${m(ZERO)}) ((${m(CONS)} ${m(ONE)}) ((${m(CONS)} ${m(TWO)}) ${m(
   EMPTY_LIST
 )})))`;
-console.log(YES);
+log(YES);
 lambDecoder
   .decodeAny(YES)
   .map(lambToComb)
   .map(combToJot)
   .map(jotToString)
-  .do(console.log);
+  .do(log);
 
 const FIZZ = `((${m(CONS)} ${m(F_)}) ((${m(CONS)} ${m(I_)}) ((${m(CONS)} ${m(Z_)}) ((${m(CONS)} ${m(
   Z_
 )}) ${m(EMPTY_LIST)}))))`;
-console.log(FIZZ);
+log(FIZZ);
 const BUZZ = `((${m(CONS)} ${m(B_)}) ((${m(CONS)} ${m(U_)}) ((${m(CONS)} ${m(Z_)}) ((${m(CONS)} ${m(
   Z_
 )}) ${m(EMPTY_LIST)}))))`;

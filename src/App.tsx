@@ -5,7 +5,7 @@ import {
   combDecoder,
   combToJot,
   combToLamb,
-  combToString,
+  combToPrettyString,
   decToBin,
   funcAsArray,
   funcAsBoolean,
@@ -51,12 +51,12 @@ function App() {
           .decodeAny(rawLambStr)
           .elseDo(console.error)
           .map(lambToComb)
-          .map(combToString)
+          .map(combToPrettyString)
           .getOrElseValue("");
       case "comb":
         return rawCombStr;
       case "jot":
-        return combToString(lambToComb(jotToLamb(jotFromString(rawJotStr))));
+        return combToPrettyString(lambToComb(jotToLamb(jotFromString(rawJotStr))));
     }
   })();
 
@@ -82,16 +82,37 @@ function App() {
     }
   })();
 
+  const currentValueString = ((): string => {
+    const emptyMsg = "...";
+    switch (basis) {
+      case "lamb":
+        if (lambStr === "") return emptyMsg;
+        return lambDecoder
+          .decodeAny(lambStr)
+          .map(lambToString)
+          .getOrElseValue("Invalid Lambda Expression");
+      case "comb":
+        if (combStr === "") return emptyMsg;
+        return combDecoder
+          .decodeAny(combStr)
+          .map(combToPrettyString)
+          .getOrElseValue("Invalid Combinatory Expression");
+      case "jot":
+        return emptyMsg;
+    }
+  })();
+
   const func = jotToFunc(jotFromString(jotStr));
 
   return (
     <div className="App">
       <header className="App-header">
-        <table style={{width: '90%'}}>
+        {currentValueString}
+        <table style={{ width: "90%" }}>
           <tbody>
             <tr>
-              <td style={{width: '20%'}}>Lambda Expression </td>
-              <td style={{width: '60%'}}>
+              <td style={{ width: "20%" }}>Lambda Expression </td>
+              <td style={{ width: "60%" }}>
                 <input
                   style={{ width: "100%" }}
                   value={lambStr}
@@ -101,7 +122,7 @@ function App() {
                   }}
                 />
               </td>
-              <td style={{width: '20%'}}>(length: {lambStr.length})</td>
+              <td style={{ width: "20%" }}>(length: {lambStr.length})</td>
             </tr>
 
             <tr>
@@ -139,7 +160,7 @@ function App() {
               <td>
                 <input
                   style={{ width: "100%" }}
-                  value={jotStr ? binToDec(jotStr) : ''}
+                  value={jotStr ? binToDec(jotStr) : ""}
                   onChange={e => {
                     setRawJotStr(decToBin(e.target.value));
                     setBasis("jot");
