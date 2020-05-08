@@ -5,7 +5,7 @@ import { Maybe, nothing, just } from "maybeasy";
 export const log = (s: string) => console.log("[SJC] ", s);
 
 type Jot = (0 | 1)[];
-type Func = (a: Func) => Func;
+export type Func = (a: Func) => Func;
 
 const S: Func = x => y => z => x(z)(y(z));
 const K: Func = x => _ => x;
@@ -171,6 +171,8 @@ const J0Lamb = (l: Lamb): Lamb => lapplication(lapplication(l, SLamb()), KLamb()
 
 export const jotToLamb = (jot: Jot): Lamb =>
   jot.reduce((l, j) => (j === 1 ? J1Lamb(l) : J0Lamb(l)), ILamb());
+
+// export const jotToComb = (jot: Jot): Comb => {};
 
 export interface LVariable {
   kind: "lvariable";
@@ -380,7 +382,10 @@ export const combToString = (comb: Comb, second?: boolean): string => {
   }
 };
 
-export const combToPrettyString = (comb: Comb): string => combToString(comb).split(' ').join('')
+export const combToPrettyString = (comb: Comb): string =>
+  combToString(comb)
+    .split(" ")
+    .join("");
 
 const findGroups = (expr: string): string[] => {
   let groups: [number, number][] = [];
@@ -546,7 +551,43 @@ export const combToLamb = (comb: Comb): Lamb => {
   }
 };
 
+const lambIsI = (lamb: Lamb): boolean =>
+  lamb.kind === "labstraction" &&
+  lamb.body.kind === lamb.vari.kind &&
+  lamb.body.value === lamb.vari.kind;
+
+const lambIsK = (lamb: Lamb): boolean =>
+  lamb.kind === "labstraction" &&
+  lamb.body.kind === "labstraction" &&
+  lamb.body.body.kind === lamb.vari.kind &&
+  lamb.body.body.value === lamb.vari.kind;
+
+// S: ^x.^y.^z.((x z) (y z))
+const lambIsS = (lamb: Lamb): boolean =>
+  lamb.kind === "labstraction" &&
+  lamb.body.kind === "labstraction" &&
+  lamb.body.body.kind === "labstraction" &&
+  lamb.body.body.body.kind === "lapplication" &&
+  lamb.body.body.body.first.kind === "lapplication" &&
+  lamb.body.body.body.first.first.kind === "lvariable" &&
+  lamb.body.body.body.first.first.value === lamb.vari.value &&
+  lamb.body.body.body.first.second.kind === "lvariable" &&
+  lamb.body.body.body.first.second.value === lamb.body.body.vari.value &&
+  lamb.body.body.body.second.kind === "lapplication" &&
+  lamb.body.body.body.second.first.kind === "lvariable" &&
+  lamb.body.body.body.second.first.value === lamb.body.vari.value &&
+  lamb.body.body.body.second.second.kind === "lvariable" &&
+  lamb.body.body.body.second.second.value === lamb.body.body.vari.value;
+
 export const lambToComb = (lamb: Lamb): Comb => {
+  if (lambIsI(lamb)) {
+    return combinator("I");
+  } else if (lambIsK(lamb)) {
+    return combinator("K");
+  } else if (lambIsS(lamb)) {
+    return combinator("S");
+  }
+
   switch (lamb.kind) {
     case "lvariable":
       if (lamb.value === "S" || lamb.value === "K" || lamb.value === "I") {
@@ -566,7 +607,9 @@ export const lambToComb = (lamb: Lamb): Comb => {
             return capplication(combinator("K"), lambToComb(lamb.body));
           }
         case "labstraction":
-          if (!new RegExp(`\\b${lamb.vari.value}\\b`).test(lambToExactString(lamb.body))) {
+          if (lamb.body.body.kind === "lvariable" && lamb.body.body.value === lamb.vari.value) {
+            return combinator("K");
+          } else if (!new RegExp(`\\b${lamb.vari.value}\\b`).test(lambToExactString(lamb.body))) {
             return capplication(combinator("K"), lambToComb(lamb.body));
           } else {
             return lambToComb(
@@ -586,16 +629,22 @@ export const lambToComb = (lamb: Lamb): Comb => {
   }
 };
 
+const SJot: Jot = [1, 1, 1, 1, 1, 0, 0, 0];
+const KJot: Jot = [1, 1, 1, 0, 0];
+const IJot: Jot = [1, 1, 0, 1, 0];
+const OneJot: Jot = [1];
+
 const handleCombinator = (comb: Combinator): Jot => {
   switch (comb.value) {
     case "S":
-      return [1, 1, 1, 1, 1, 0, 0, 0];
+      return SJot;
     case "K":
-      return [1, 1, 1, 0, 0];
+      return KJot;
     case "I":
-      return combToJot(
-        capplication(capplication(combinator("S"), combinator("K")), combinator("K"))
-      );
+      return IJot;
+    // return combToJot(
+    //   capplication(capplication(combinator("S"), combinator("K")), combinator("K"))
+    // );
   }
 };
 
@@ -604,8 +653,7 @@ export const combToJot = (comb: Comb): Jot => {
     case "combinator":
       return handleCombinator(comb);
     case "capplication":
-      const one: Jot = [1];
-      return one.concat(combToJot(comb.first)).concat(combToJot(comb.second));
+      return OneJot.concat(combToJot(comb.first)).concat(combToJot(comb.second));
   }
 };
 

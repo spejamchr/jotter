@@ -17,7 +17,8 @@ import {
   jotToString,
   lambDecoder,
   lambToComb,
-  lambToString
+  lambToString,
+  Func
 } from "./utils/jot";
 
 type Basis = "lamb" | "comb" | "jot";
@@ -103,6 +104,8 @@ function App() {
   })();
 
   const func = jotToFunc(jotFromString(jotStr));
+  const tester: Func = x => x;
+  console.log(`Is Identity? ${func(tester) === tester}`);
 
   return (
     <div className="App">
