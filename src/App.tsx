@@ -6,7 +6,6 @@ import {
   combToJot,
   combToLamb,
   combToPrettyString,
-  decToBin,
   funcAsArray,
   funcAsBoolean,
   funcAsNumber,
@@ -17,14 +16,13 @@ import {
   jotToString,
   lambDecoder,
   lambToComb,
-  lambToString,
-  Func
+  lambToString
 } from "./utils/jot";
 
 type Basis = "lamb" | "comb" | "jot";
 
 function App() {
-  const [basis, setBasis] = useState<Basis>("lamb");
+  const [basis, setBasis] = useState<Basis>("jot");
   const [rawLambStr, setRawLambStr] = useState("");
   const [rawCombStr, setRawCombStr] = useState("");
   const [rawJotStr, setRawJotStr] = useState("");
@@ -36,7 +34,6 @@ function App() {
       case "comb":
         return combDecoder
           .decodeAny(rawCombStr)
-          .elseDo(console.error)
           .map(combToLamb)
           .map(lambToString)
           .getOrElseValue("");
@@ -50,7 +47,6 @@ function App() {
       case "lamb":
         return lambDecoder
           .decodeAny(rawLambStr)
-          .elseDo(console.error)
           .map(lambToComb)
           .map(combToPrettyString)
           .getOrElseValue("");
@@ -66,7 +62,6 @@ function App() {
       case "lamb":
         return lambDecoder
           .decodeAny(rawLambStr)
-          .elseDo(console.error)
           .map(lambToComb)
           .map(combToJot)
           .map(jotToString)
@@ -104,8 +99,6 @@ function App() {
   })();
 
   const func = jotToFunc(jotFromString(jotStr));
-  const tester: Func = x => x;
-  console.log(`Is Identity? ${func(tester) === tester}`);
 
   return (
     <div className="App">
@@ -163,14 +156,10 @@ function App() {
               <td>
                 <input
                   style={{ width: "100%" }}
-                  value={jotStr ? binToDec(jotStr) : ""}
-                  onChange={e => {
-                    setRawJotStr(decToBin(e.target.value));
-                    setBasis("jot");
-                  }}
+                  value={jotStr ? (jotStr.length < 1000 ? binToDec(jotStr) : "Pretty big") : ""}
+                  disabled
                 />
               </td>
-              <td>(length: {binToDec(jotStr).length})</td>
             </tr>
           </tbody>
         </table>
@@ -189,21 +178,21 @@ function App() {
             .getOrElseValue("not a number")}
         </code>
         <p>As string:</p>
-        <code>S: {JSON.stringify(funcAsString(func))}</code>
+        <code>
+          S:{" "}
+          {funcAsString(func)
+            .map(JSON.stringify)
+            .map(s => (s.length < 40 ? s : `${s.slice(0, 40)}...`))
+            .getOrElseValue("not a string")}
+        </code>
         <p>As array of numbers:</p>
         <code>
           A:{" "}
           {funcAsArray(func)
-            .map(funcAsNumber)
-            .map(mn => mn.map(String).getOrElseValue("not a number"))
-            .join(", ")}
-        </code>
-        <p>As array of strings:</p>
-        <code>
-          A:{" "}
-          {funcAsArray(func)
-            .map(funcAsString)
-            .map(s => JSON.stringify(s))}
+            .map(a => a.map(funcAsNumber).map(mn => mn.map(String).getOrElseValue("not a number")))
+            .map(a => (a.length < 20 ? a : a.slice(0, 20).concat(["..."])))
+            .map(a => a.join(", "))
+            .getOrElseValue("not an array")}
         </code>
       </header>
     </div>

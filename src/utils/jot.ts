@@ -100,17 +100,33 @@ export const funcAsNumber = (func: Func): Maybe<number> => {
   return valid ? just(n) : nothing();
 };
 
-export const funcAsArray = (func: Func): Func[] => {
+export const funcAsArray = (func: Func): Maybe<Func[]> => {
   let a: Func[] = [];
-  func(effect(f => a.push(f)))(I);
-  return a;
+  let valid = true;
+
+  const tester = effect(f => {
+    if (f !== tester) {
+      valid = false;
+    }
+  });
+
+  func(
+    effect(
+      f => a.push(f),
+      _ => tester
+    )
+  )(tester);
+
+  return valid ? just(a) : nothing();
 };
 
-export const funcAsString = (func: Func): string =>
-  funcAsArray(func)
-    .map(funcAsNumber)
-    .map(mi => mi.map(String.fromCodePoint).getOrElseValue("�"))
-    .join("");
+export const funcAsString = (func: Func): Maybe<string> =>
+  funcAsArray(func).map(a =>
+    a
+      .map(funcAsNumber)
+      .map(mi => mi.map(String.fromCodePoint).getOrElseValue("�"))
+      .join("")
+  );
 
 // Always succeeds. Converts any character that's not 0 to 1.
 export const jotFromString = (str: string): Jot => str.split("").map(c => (c === "0" ? 0 : 1));
@@ -171,8 +187,6 @@ const J0Lamb = (l: Lamb): Lamb => lapplication(lapplication(l, SLamb()), KLamb()
 
 export const jotToLamb = (jot: Jot): Lamb =>
   jot.reduce((l, j) => (j === 1 ? J1Lamb(l) : J0Lamb(l)), ILamb());
-
-// export const jotToComb = (jot: Jot): Comb => {};
 
 export interface LVariable {
   kind: "lvariable";
@@ -513,15 +527,15 @@ export const pairLamb = (expr: string): string => {
   }
 };
 
-const testPairLamb = (s: string) => {
-  log(`pairLamb(${JSON.stringify(s)}): ${JSON.stringify(pairLamb(s))}`);
-};
+// const testPairLamb = (s: string) => {
+//   log(`pairLamb(${JSON.stringify(s)}): ${JSON.stringify(pairLamb(s))}`);
+// };
 
-testPairLamb("x");
-testPairLamb("^x.x x");
-testPairLamb("^x.x");
-testPairLamb("x x");
-testPairLamb("(^a.^b.^c.a c (b c)) (^d.^e.d)");
+// testPairLamb("x");
+// testPairLamb("^x.x x");
+// testPairLamb("^x.x");
+// testPairLamb("x x");
+// testPairLamb("(^a.^b.^c.a c (b c)) (^d.^e.d)");
 
 const combinatorToLamb = (comb: Combinator): Lamb => {
   const x = randWord(5);
@@ -551,43 +565,28 @@ export const combToLamb = (comb: Comb): Lamb => {
   }
 };
 
-const lambIsI = (lamb: Lamb): boolean =>
-  lamb.kind === "labstraction" &&
-  lamb.body.kind === lamb.vari.kind &&
-  lamb.body.value === lamb.vari.kind;
+const lambHasVariable = (lamb: Lamb, vari: string): boolean => {
+  switch (lamb.kind) {
+    case "lvariable":
+      return lamb.value === vari;
+    case "labstraction":
+      return lambHasVariable(lamb.body, vari);
+    case "lapplication":
+      return lambHasVariable(lamb.first, vari) || lambHasVariable(lamb.second, vari);
+  }
+};
 
-const lambIsK = (lamb: Lamb): boolean =>
-  lamb.kind === "labstraction" &&
-  lamb.body.kind === "labstraction" &&
-  lamb.body.body.kind === lamb.vari.kind &&
-  lamb.body.body.value === lamb.vari.kind;
-
-// S: ^x.^y.^z.((x z) (y z))
-const lambIsS = (lamb: Lamb): boolean =>
-  lamb.kind === "labstraction" &&
-  lamb.body.kind === "labstraction" &&
-  lamb.body.body.kind === "labstraction" &&
-  lamb.body.body.body.kind === "lapplication" &&
-  lamb.body.body.body.first.kind === "lapplication" &&
-  lamb.body.body.body.first.first.kind === "lvariable" &&
-  lamb.body.body.body.first.first.value === lamb.vari.value &&
-  lamb.body.body.body.first.second.kind === "lvariable" &&
-  lamb.body.body.body.first.second.value === lamb.body.body.vari.value &&
-  lamb.body.body.body.second.kind === "lapplication" &&
-  lamb.body.body.body.second.first.kind === "lvariable" &&
-  lamb.body.body.body.second.first.value === lamb.body.vari.value &&
-  lamb.body.body.body.second.second.kind === "lvariable" &&
-  lamb.body.body.body.second.second.value === lamb.body.body.vari.value;
+// Only used in lambToComb: There's a part where we need to mix a comb into a lamb
+const combAsLamb = (comb: Comb): Lamb => {
+  switch (comb.kind) {
+    case "combinator":
+      return lvariable(comb.value);
+    case "capplication":
+      return lapplication(combAsLamb(comb.first), combAsLamb(comb.second));
+  }
+};
 
 export const lambToComb = (lamb: Lamb): Comb => {
-  if (lambIsI(lamb)) {
-    return combinator("I");
-  } else if (lambIsK(lamb)) {
-    return combinator("K");
-  } else if (lambIsS(lamb)) {
-    return combinator("S");
-  }
-
   switch (lamb.kind) {
     case "lvariable":
       if (lamb.value === "S" || lamb.value === "K" || lamb.value === "I") {
@@ -607,16 +606,29 @@ export const lambToComb = (lamb: Lamb): Comb => {
             return capplication(combinator("K"), lambToComb(lamb.body));
           }
         case "labstraction":
+          let app: Lamb;
           if (lamb.body.body.kind === "lvariable" && lamb.body.body.value === lamb.vari.value) {
             return combinator("K");
-          } else if (!new RegExp(`\\b${lamb.vari.value}\\b`).test(lambToExactString(lamb.body))) {
+          } else if (
+            lamb.body.body.kind === "labstraction" &&
+            (app = lamb.body.body.body) &&
+            app.kind === "lapplication" &&
+            app.first.kind === "lapplication" &&
+            app.first.first.kind === "lvariable" &&
+            app.first.first.value === lamb.vari.value &&
+            app.first.second.kind === "lvariable" &&
+            app.first.second.value === lamb.body.body.vari.value &&
+            app.second.kind === "lapplication" &&
+            app.second.first.kind === "lvariable" &&
+            app.second.first.value === lamb.body.vari.value &&
+            app.second.second.kind === "lvariable" &&
+            app.second.second.value === lamb.body.body.vari.value
+          ) {
+            return combinator("S");
+          } else if (!lambHasVariable(lamb.body, lamb.vari.value)) {
             return capplication(combinator("K"), lambToComb(lamb.body));
           } else {
-            return lambToComb(
-              labstractionR(lamb.vari.value, combToString(lambToComb(lamb.body)))
-                .map<Lamb>(x => x)
-                .getOrElseValue(lvariable("I"))
-            );
+            return lambToComb(labstraction(lamb.vari, combAsLamb(lambToComb(lamb.body))));
           }
         case "lapplication":
           const a = { ...lamb };
@@ -629,33 +641,20 @@ export const lambToComb = (lamb: Lamb): Comb => {
   }
 };
 
-const SJot: Jot = [1, 1, 1, 1, 1, 0, 0, 0];
-const KJot: Jot = [1, 1, 1, 0, 0];
-const IJot: Jot = [1, 1, 0, 1, 0];
-const OneJot: Jot = [1];
+const SJot = "11111000";
+const KJot = "11100";
+const IJot = "11010";
 
-const handleCombinator = (comb: Combinator): Jot => {
-  switch (comb.value) {
-    case "S":
-      return SJot;
-    case "K":
-      return KJot;
-    case "I":
-      return IJot;
-    // return combToJot(
-    //   capplication(capplication(combinator("S"), combinator("K")), combinator("K"))
-    // );
-  }
-};
-
-export const combToJot = (comb: Comb): Jot => {
+const combToJotString = (comb: Comb): string => {
   switch (comb.kind) {
     case "combinator":
-      return handleCombinator(comb);
+      return comb.value === "S" ? SJot : comb.value === "K" ? KJot : IJot;
     case "capplication":
-      return OneJot.concat(combToJot(comb.first)).concat(combToJot(comb.second));
+      return `1${combToJotString(comb.first)}${combToJotString(comb.second)}`;
   }
 };
+
+export const combToJot = (comb: Comb): Jot => jotFromString(combToJotString(comb));
 
 const randWord = (length: number): string =>
   Array(length)
@@ -699,41 +698,6 @@ const safeShort = (expr: string): string => {
   return short;
 };
 
-export const testLambToComb = (name: string, lamb: string) => {
-  const mangled = m(lamb);
-  window.setTimeout(() => {
-    log(`[test] ${name} before: ${lamb} -> ${mangled}`);
-    lambDecoder
-      .decodeAny(mangled)
-      .map(lambToComb)
-      .map(combToString)
-      .elseDo(() => console.warn(`[error] Invalid Lambda: ${name}`))
-      .do(comb =>
-        combDecoder
-          .decodeAny(comb)
-          .map(combToJot)
-          .map(jotToString)
-          .do(v => log(`[test] ${name}: ${v.length}`))
-          .elseDo(() => console.warn(`[error] Invalid Comb: ${name}`))
-      );
-  }, 500);
-};
-
-const oddsToOne = (dec: string): 0 | 1 => (Number(dec.slice(-1)) % 2 === 0 ? 0 : 1);
-
-const divByTwo = (dec: string): string => {
-  let newDec = "";
-  let add = 0;
-  let nextAdd = 0;
-  for (let i = 0; i < dec.length; i++) {
-    const chr = dec[i];
-    add = nextAdd;
-    nextAdd = oddsToOne(chr) ? 5 : 0;
-    newDec += String(Math.floor(Number(chr) / 2) + add);
-  }
-  return newDec[0] === "0" ? newDec.slice(1) : newDec;
-};
-
 const multByTwo = (dec: string): string => {
   let newDec = "";
   let carry = 0;
@@ -758,18 +722,6 @@ const addOne = (dec: string): string => {
   }
 };
 
-export const decToBin = (dec: string): string => {
-  if (!/^[0-9]*$/i.test(dec)) {
-    return "";
-  }
-  let stack = dec === "0" ? "0" : "";
-  while (dec !== "0" && dec !== "") {
-    stack = `${oddsToOne(dec)}${stack}`;
-    dec = divByTwo(dec);
-  }
-  return stack;
-};
-
 export const binToDec = (bin: string): string => {
   if (!/^[01]*$/i.test(bin)) {
     return "";
@@ -785,113 +737,145 @@ export const binToDec = (bin: string): string => {
   return stack;
 };
 
-const Y = "^f.(^x.(f (x x)) ^x.(f (x x)))";
+const Y = "(^f.(^x.(f (x x)) ^x.(f (x x))))";
 
-const ZERO = "^x.^y.y";
-const ONE = "^x.^y.(x y)";
-const TWO = "^x.^y.(x (x y))";
-const THREE = "^x.^y.(x (x (x y)))";
-const FOUR = "^x.^y.(x (x (x (x y))))";
-const FIVE = "^x.^y.(x (x (x (x (x y)))))";
-const NINE = "^x.^y.(x (x (x (x (x (x (x (x (x y)))))))))";
-const TEN = "^x.^y.(x (x (x (x (x (x (x (x (x (x y))))))))))";
+const ZERO = "(^x.^y.y)";
+const ONE = "(^x.^y.(x y))";
+const TWO = "(^x.^y.(x (x y)))";
+const THREE = "(^x.^y.(x (x (x y))))";
+const FOUR = "(^x.^y.(x (x (x (x y)))))";
+const FIVE = "(^x.^y.(x (x (x (x (x y))))))";
+const NINE = "(^x.^y.(x (x (x (x (x (x (x (x (x y))))))))))";
+const TEN = "(^x.^y.(x (x (x (x (x (x (x (x (x (x y)))))))))))";
 
-const INCREMENT = "^n.^x.^y.(x ((n x) y))";
-const PLUS = "^m.^n.^f.^x.((m f) ((n f) x))";
-const MULT = "^m.^n.^f.^x.((m (n f)) x)";
-const EXP = "^m.^n.(n m)";
-const DECREMENT = "^n.^f.^x.(((n ^g.^h.(h (g f))) ^u.x) ^u.u)";
-const SUBTRACT = `^m.^o.((o ${m(DECREMENT)}) m)`;
+const INCREMENT = "(^n.^x.^y.(x ((n x) y)))";
+const PLUS = "(^m.^n.^f.^x.((m f) ((n f) x)))";
+const MULT = "(^m.^n.^f.^x.((m (n f)) x))";
+const EXP = "(^m.^n.(n m))";
+const DECREMENT = "(^n.^f.^x.(((n ^g.^h.(h (g f))) ^u.x) ^u.u))";
+const SUBTRACT = `(^m.^o.((o ${m(DECREMENT)}) m))`;
 
 // 128513
 // 10**5 + 2*10**4 + 8*10**3 + 5*10**2 + 13
 // 18**4 + 12**4 + 7**4 + 4*10**2
-const NUM = `((${m(PLUS)} ((${m(EXP)} ((${m(PLUS)} ((${m(EXP)} ${m(FOUR)}) ${m(TWO)})) ${m(
+export const NUM = `((${m(PLUS)} ((${m(EXP)} ((${m(PLUS)} ((${m(EXP)} ${m(FOUR)}) ${m(TWO)})) ${m(
   TWO
 )})) ${m(FOUR)})) ((${m(PLUS)} ((${m(EXP)} ((${m(PLUS)} ((${m(EXP)} ${m(TWO)}) ${m(THREE)})) ${m(
   FOUR
 )})) ${m(FOUR)})) ((${m(PLUS)} ((${m(EXP)} ((${m(PLUS)} ${m(FIVE)}) ${m(TWO)})) ${m(FOUR)})) ((${m(
   MULT
 )} ${m(FOUR)}) ((${m(EXP)} ${m(TEN)}) ${m(TWO)})))))`;
-log("big number");
-log(
-  lambDecoder
-    .decodeAny(safeShort(NUM))
-    .map(lambToExactString)
-    .getOrElseValue("")
-);
 
-const TRUE_ = "^f.^s.f";
-const FALSE_ = "^f.^s.s";
-// const NOT = "^b.^f.^s.((b s) f)";
-// const AND = "^ba.^bb.((ba bb) ba)";
+export const makeSince = () => {
+  let lastCalled = new Date().valueOf();
+  return () => {
+    const now = new Date().valueOf();
+    const result = now - lastCalled;
+    lastCalled = now;
+    return result;
+  };
+};
 
-const IS_ZERO = `^n.((n ^x.${m(FALSE_)}) ${m(TRUE_)})`;
-const IS_LESS_OR_EQUAL = `^m.^n.(${m(IS_ZERO)} ((${m(SUBTRACT)} m) n))`;
-// const IS_EQUAL = `^m.^n.((${m(AND)} ((${m(IS_LESS_OR_EQUAL)} m) n)) ((${m(
+// log("big number");
+// const since = makeSince();
+// log("started " + since());
+// log(
+//   lambDecoder
+//     .decodeAny(NUM)
+//     .do(() => log("lambDecoder time " + since()))
+//     .map(lambToString)
+//     .do(() => log("lambToString time " + since()))
+//     .getOrElseValue("")
+// );
+
+// lambDecoder
+//   .decodeAny(NUM)
+//   .do(() => log("lambDecoder time " + since()))
+//   .map(lambToComb)
+//   .do(() => log("lambToComb time " + since()))
+//   .map(combToJot)
+//   .do(() => log("combToJot time " + since()))
+//   .map(jotToFunc)
+//   .do(() => log("jotToFunc time " + since()))
+//   .map(funcAsNumber)
+//   .do(() => log("funcAsNumber time " + since()))
+//   .do(mn =>
+//     mn.do(n => log("funcAsNumber succeeded: " + n)).elseDo(() => log("funcAsNumber failed"))
+//   );
+
+const TRUE_ = "(^f.^s.f)";
+const FALSE_ = "(^f.^s.s)";
+// const NOT = "(^b.^f.^s.((b s) f))";
+// const AND = "(^ba.^bb.((ba bb) ba))";
+
+const IS_ZERO = `(^n.((n ^x.${m(FALSE_)}) ${m(TRUE_)}))`;
+const IS_LESS_OR_EQUAL = `(^m.^n.(${m(IS_ZERO)} ((${m(SUBTRACT)} m) n)))`;
+// const IS_EQUAL = `(^m.^n.((${m(AND)} ((${m(IS_LESS_OR_EQUAL)} m) n)) ((${m(
 //   IS_LESS_OR_EQUAL
-// )} n) m))`;
+// )} n) m)))`;
 
-const MINIMOD = `^mod.^n.^q.((((${m(IS_LESS_OR_EQUAL)} n) q) ((mod ((${m(SUBTRACT)} n) q)) q)) n)`;
+const MINIMOD = `(^mod.^n.^q.((((${m(IS_LESS_OR_EQUAL)} n) q) ((mod ((${m(
+  SUBTRACT
+)} n) q)) q)) n))`;
 const MOD = `(${m(Y)} ${m(MINIMOD)})`;
 
-const MINIDIV = `^div.^n.^q.((((${m(IS_LESS_OR_EQUAL)} n) q) (${m(INCREMENT)} ((div ((${m(
+const MINIDIV = `(^div.^n.^q.((((${m(IS_LESS_OR_EQUAL)} n) q) (${m(INCREMENT)} ((div ((${m(
   SUBTRACT
-)} n) q)) q))) ${m(ZERO)})`;
+)} n) q)) q))) ${m(ZERO)}))`;
 const DIV = `(${m(Y)} ${m(MINIDIV)})`;
 
 // Pairs
-const PAIR = "^a.^b.^f.((f a) b)";
-// const FIRST = "^p.(p ^a.^b.a)";
-// const SECOND = "^p.(p ^a.^b.b)";
+const PAIR = "(^a.^b.^f.((f a) b))";
+// const FIRST = "(^p.(p ^a.^b.a))";
+// const SECOND = "(^p.(p ^a.^b.b))";
 
-const EMPTY_LIST = "^c.^n.n";
-// const IS_EMPTY = `^l.((l ^h.^t.${m(FALSE_)}) ${m(TRUE_)})`;
-const CONS = "^h.^t.^c.^n.((c h) ((t c) n))";
-// const HEAD = `^l.((l ^h.^t.h) ${m(FALSE_)})`;
-// const TAIL = "^l.^c.^n.(((l ^h.^t.^g.((g h) (t c))) ^t.n) ^h.^t.t)";
+const EMPTY_LIST = "(^c.^n.n)";
+// const IS_EMPTY = `(^l.((l ^h.^t.${m(FALSE_)}) ${m(TRUE_)}))`;
+const CONS = "(^h.^t.^c.^n.((c h) ((t c) n)))";
+// const HEAD = `(^l.((l ^h.^t.h) ${m(FALSE_)}))`;
+// const TAIL = "(^l.^c.^n.(((l ^h.^t.^g.((g h) (t c))) ^t.n) ^h.^t.t))";
 
 const FOLD_RIGHT = PAIR;
-const MAP = `^f.((${m(FOLD_RIGHT)} ^x.(${m(CONS)} (f x))) ${m(EMPTY_LIST)})`;
+const MAP = `(^f.((${m(FOLD_RIGHT)} ^x.(${m(CONS)} (f x))) ${m(EMPTY_LIST)}))`;
 
-const MINIRANGE = `^range.^min.^max.((((${m(IS_LESS_OR_EQUAL)} min) max) ((${m(
+const MINIRANGE = `(^range.^min.^max.((((${m(IS_LESS_OR_EQUAL)} min) max) ((${m(
   CONS
-)} min) ((range (${m(INCREMENT)} min)) max))) ${m(EMPTY_LIST)})`;
+)} min) ((range (${m(INCREMENT)} min)) max))) ${m(EMPTY_LIST)}))`;
 const RANGE = `(${m(Y)} ${m(MINIRANGE)})`;
 const APPEND = `(${m(FOLD_RIGHT)} ${m(CONS)})`;
-const PUSH = `^value.(${m(APPEND)} ((${m(CONS)} value) ${m(EMPTY_LIST)}))`;
+const PUSH = `(^value.(${m(APPEND)} ((${m(CONS)} value) ${m(EMPTY_LIST)})))`;
 // const REVERSE = `((${m(FOLD_RIGHT)} ${m(PUSH)}) ${m(EMPTY_LIST)})`;
 
 const B_ = TEN;
-const F_ = "^x.^y.(x (x (x (x (x (x (x (x (x (x (x y)))))))))))"; // 11
-const I_ = "^x.^y.(x (x (x (x (x (x (x (x (x (x (x (x y))))))))))))"; // 12
-const U_ = "^x.^y.(x (x (x (x (x (x (x (x (x (x (x (x (x y)))))))))))))"; // 13
-const Z_ = "^x.^y.(x (x (x (x (x (x (x (x (x (x (x (x (x (x y))))))))))))))"; // 14
-const FIFTEEN = "^x.^y.(x (x (x (x (x (x (x (x (x (x (x (x (x (x (x y)))))))))))))))";
+const F_ = "(^x.^y.(x (x (x (x (x (x (x (x (x (x (x y))))))))))))"; // 11
+const I_ = "(^x.^y.(x (x (x (x (x (x (x (x (x (x (x (x y)))))))))))))"; // 12
+const U_ = "(^x.^y.(x (x (x (x (x (x (x (x (x (x (x (x (x y))))))))))))))"; // 13
+const Z_ = "(^x.^y.(x (x (x (x (x (x (x (x (x (x (x (x (x (x y)))))))))))))))"; // 14
+const FIFTEEN = "(^x.^y.(x (x (x (x (x (x (x (x (x (x (x (x (x (x (x y))))))))))))))))";
 const HUNDRED =
-  "^x.^y.(x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x y))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))";
+  "(^x.^y.(x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x y)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))";
 
-const MINI_TO_DIGITS = `^to_digits.^n.((${m(PUSH)} ((${m(MOD)} n) ${m(TEN)})) ((((${m(
+const MINI_TO_DIGITS = `(^to_digits.^n.((${m(PUSH)} ((${m(MOD)} n) ${m(TEN)})) ((((${m(
   IS_LESS_OR_EQUAL
-)} n) ${m(NINE)}) ${m(EMPTY_LIST)}) (to_digits ((${m(DIV)} n) ${m(TEN)}))))`;
+)} n) ${m(NINE)}) ${m(EMPTY_LIST)}) (to_digits ((${m(DIV)} n) ${m(TEN)})))))`;
 const TO_DIGITS = `(${m(Y)} ${m(MINI_TO_DIGITS)})`;
 const TO_STRING = TO_DIGITS;
 
 export const YES = `((${m(CONS)} ${m(ZERO)}) ((${m(CONS)} ${m(ONE)}) ((${m(CONS)} ${m(TWO)}) ${m(
   EMPTY_LIST
 )})))`;
-log(YES);
-lambDecoder
-  .decodeAny(YES)
-  .map(lambToComb)
-  .map(combToJot)
-  .map(jotToString)
-  .do(log);
+// log(YES);
+// lambDecoder
+//   .decodeAny(YES)
+//   .map(lambToComb)
+//   .map(combToJot)
+//   .map(jotToString)
+//   .do(log);
 
 const FIZZ = `((${m(CONS)} ${m(F_)}) ((${m(CONS)} ${m(I_)}) ((${m(CONS)} ${m(Z_)}) ((${m(CONS)} ${m(
   Z_
 )}) ${m(EMPTY_LIST)}))))`;
-log(FIZZ);
+// log(FIZZ);
 const BUZZ = `((${m(CONS)} ${m(B_)}) ((${m(CONS)} ${m(U_)}) ((${m(CONS)} ${m(Z_)}) ((${m(CONS)} ${m(
   Z_
 )}) ${m(EMPTY_LIST)}))))`;
