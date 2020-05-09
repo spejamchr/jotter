@@ -1,11 +1,12 @@
+import { just, Maybe, nothing } from "maybeasy";
 import React, { useState } from "react";
 import "./App.css";
 import BasisMachine, { BasisKind } from "./utils/BasisMachine";
-import { funcAsArray, funcAsBoolean, funcAsNumber, funcAsString } from "./utils/func";
+import { Func, funcAsArray, funcAsBoolean, funcAsNumber, funcAsString } from "./utils/func";
 import { jotToFunc } from "./utils/jot";
 import { safeShort } from "./utils/lamb";
 import { NUM } from "./utils/lambExprs";
-import { log } from "./utils/tools";
+import { error, log } from "./utils/tools";
 
 log("NUM:");
 log(safeShort(NUM));
@@ -17,7 +18,12 @@ function App() {
     rawSetBasis(new BasisMachine(kind, e.target.value));
   };
 
-  const func = jotToFunc(basis.jot());
+  let func: Maybe<Func> = nothing();
+  try {
+    func = just(jotToFunc(basis.jot()));
+  } catch (e) {
+    error("defining the func failed:", e);
+  }
 
   return (
     <div className="App">
@@ -80,36 +86,44 @@ function App() {
           </tbody>
         </table>
 
-        <p>As boolean:</p>
-        <code>
-          {funcAsBoolean(func)
-            .map(String)
-            .getOrElseValue("not a boolean")}
-        </code>
-        <p>As number:</p>
-        <code>
-          N:{" "}
-          {funcAsNumber(func)
-            .map(String)
-            .getOrElseValue("not a number")}
-        </code>
-        <p>As string:</p>
-        <code>
-          S:{" "}
-          {funcAsString(func)
-            .map(JSON.stringify)
-            .map(s => (s.length < 40 ? s : `${s.slice(0, 40)}...`))
-            .getOrElseValue("not a string")}
-        </code>
-        <p>As array of numbers:</p>
-        <code>
-          A:{" "}
-          {funcAsArray(func)
-            .map(a => a.map(funcAsNumber).map(mn => mn.map(String).getOrElseValue("not a number")))
-            .map(a => (a.length < 20 ? a : a.slice(0, 20).concat(["..."])))
-            .map(a => `[ ${a.join(", ")} ]`)
-            .getOrElseValue("not an array")}
-        </code>
+        {func
+          .map(f => (
+            <>
+              <p>As boolean:</p>
+              <code>
+                {funcAsBoolean(f)
+                  .map(String)
+                  .getOrElseValue("not a boolean")}
+              </code>
+              <p>As number:</p>
+              <code>
+                N:{" "}
+                {funcAsNumber(f)
+                  .map(String)
+                  .getOrElseValue("not a number")}
+              </code>
+              <p>As string:</p>
+              <code>
+                S:{" "}
+                {funcAsString(f)
+                  .map(JSON.stringify)
+                  .map(s => (s.length < 40 ? s : `${s.slice(0, 40)}...`))
+                  .getOrElseValue("not a string")}
+              </code>
+              <p>As array of numbers:</p>
+              <code>
+                A:{" "}
+                {funcAsArray(f)
+                  .map(a =>
+                    a.map(funcAsNumber).map(mn => mn.map(String).getOrElseValue("not a number"))
+                  )
+                  .map(a => (a.length < 20 ? a : a.slice(0, 20).concat(["..."])))
+                  .map(a => `[ ${a.join(", ")} ]`)
+                  .getOrElseValue("not an array")}
+              </code>
+            </>
+          ))
+          .getOrElseValue(<p>Stackoverflow! That might be an infinite loop.</p>)}
       </header>
     </div>
   );
