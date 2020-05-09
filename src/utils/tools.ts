@@ -1,4 +1,5 @@
 export const log = (s: string) => console.log("[SJC] ", s);
+export const error = (s: string) => console.error("[SJC] ", s);
 
 export const randWord = (length: number): string =>
   Array(length)
