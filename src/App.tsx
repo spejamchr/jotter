@@ -3,10 +3,14 @@ import "./App.css";
 import { combDecoder, combToJot, combToLamb, combToPrettyString } from "./utils/comb";
 import { funcAsArray, funcAsBoolean, funcAsNumber, funcAsString } from "./utils/func";
 import { jotFromString, jotToFunc, jotToLamb, jotToString } from "./utils/jot";
-import { lambDecoder, lambToComb, lambToString } from "./utils/lamb";
-import { binToDec } from "./utils/tools";
+import { lambDecoder, lambToComb, lambToString, safeShort } from "./utils/lamb";
+import { NUM } from "./utils/lambExprs";
+import { binToDec, log } from "./utils/tools";
 
 type Basis = "lamb" | "comb" | "jot";
+
+log("NUM:");
+log(safeShort(NUM));
 
 function App() {
   const [basis, setBasis] = useState<Basis>("jot");
@@ -147,6 +151,7 @@ function App() {
                   disabled
                 />
               </td>
+              <td>{jotStr.length < 1000 ? `(length: ${binToDec(jotStr).length})` : ""}</td>
             </tr>
           </tbody>
         </table>
@@ -178,7 +183,7 @@ function App() {
           {funcAsArray(func)
             .map(a => a.map(funcAsNumber).map(mn => mn.map(String).getOrElseValue("not a number")))
             .map(a => (a.length < 20 ? a : a.slice(0, 20).concat(["..."])))
-            .map(a => a.join(", "))
+            .map(a => `[ ${a.join(", ")} ]`)
             .getOrElseValue("not an array")}
         </code>
       </header>

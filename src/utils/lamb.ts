@@ -103,7 +103,7 @@ const lambToStringRec = (lamb: Lamb, second: boolean, parent: Lamb): string => {
 };
 
 // shortens variable names in lambda expressions without colliding
-const safeShort = (expr: string): string => {
+export const safeShort = (expr: string): string => {
   const alphabet = "abcdefghijklmnopqrstuvwxyz";
   let a = 0;
   let l = alphabet[a];
