@@ -112,7 +112,7 @@ export const combDecoder: Decoder<Comb> = new Decoder((value: any) => {
     return err(errorMsg);
   }
   if (!validParens(value)) {
-    return err("Unmatched paren(s)");
+    return err(`Unmatched paren(s) in ${value}`);
   }
   if (value === "S" || value === "K" || value === "I") {
     return ok(combinator(value));

@@ -66,8 +66,9 @@ export const lambDecoder: Decoder<Lamb> = new Decoder((value: any) => {
     return err(`Invalid character(s) in lambda expression: ${invalidChars.join(", ")}`);
   }
   if (!validParens(value)) {
-    return err("Unmatched paren(s)");
+    return err(`Unmatched paren(s) in: ${value}`);
   }
+  value = pairLamb(value);
 
   const variRegex = /^[a-z_]+$/i;
   const abstRegex = /^\^([a-z_]+)\.(.+)$/i;
@@ -181,7 +182,7 @@ export const pairLamb = (expr: string): string => {
     let i = 0;
     let inDef = true;
     let inBody = false;
-    while (!inBody) {
+    while (!inBody && i < expr.length) {
       i++;
       if (inDef) {
         inDef = expr[i] !== ".";
