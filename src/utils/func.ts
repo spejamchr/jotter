@@ -1,4 +1,5 @@
 import { just, Maybe, nothing } from "maybeasy";
+import { error } from "./tools";
 import JustOnce from "./justOnce";
 
 export type Func = (a: Func) => Func;
@@ -11,7 +12,12 @@ export const effect = (e: (func: Func) => void, f?: Func): Func => arg => {
 
 export const funcAsBoolean = (func: Func): Maybe<boolean> => {
   const bool = new JustOnce<boolean>();
-  func(effect(() => bool.set(true)))(effect(() => bool.set(false)))(x => x);
+  try {
+    func(effect(() => bool.set(true)))(effect(() => bool.set(false)))(x => x);
+  } catch (e) {
+    error("Infinite loop?", e);
+    return nothing();
+  }
   switch (bool.kind()) {
     case "not-set":
     case "over-set":
@@ -25,14 +31,19 @@ export const funcAsNumber = (func: Func): Maybe<number> => {
   let n = 0;
   let valid = true;
   const notNumber = effect(() => (valid = false));
-  func(
-    effect(f => {
-      n += 1;
-      if (f !== notNumber) {
-        valid = false;
-      }
-    })
-  )(notNumber);
+  try {
+    func(
+      effect(f => {
+        n += 1;
+        if (f !== notNumber) {
+          valid = false;
+        }
+      })
+    )(notNumber);
+  } catch (e) {
+    error("Infinite loop?", e);
+    return nothing();
+  }
   return valid ? just(n) : nothing();
 };
 
@@ -46,13 +57,17 @@ export const funcAsArray = (func: Func): Maybe<Func[]> => {
     }
   });
 
-  func(
-    effect(
-      f => a.push(f),
-      _ => tester
-    )
-  )(tester);
-
+  try {
+    func(
+      effect(
+        f => a.push(f),
+        _ => tester
+      )
+    )(tester);
+  } catch (e) {
+    error("Infinite loop?", e);
+    return nothing();
+  }
   return valid ? just(a) : nothing();
 };
 
