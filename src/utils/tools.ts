@@ -1,8 +1,27 @@
 export const log = (...s: any[]) => console.log("[jotter]", ...s);
 export const error = (...s: any[]) => console.error("[jotter]", ...s);
 
-export const randWord = (length: number): string =>
-  Array(length)
+const DesiredChanceOfNoCollision = 1 - 1 / 10 ** 6;
+
+const chanceOfNoCollision = (vars: number, chars: number, length: number): number => {
+  const pool = chars ** length;
+  let chance = 1;
+  for (let i = 1; i < vars; i++) {
+    chance *= 1 - i / pool;
+  }
+  return chance;
+};
+
+const requiredLength = (vars: number, chars: number) => {
+  if (vars === 1) return 1;
+  let length = 3;
+  while (chanceOfNoCollision(vars, chars, length) < DesiredChanceOfNoCollision) length++;
+  return length;
+};
+
+export const randWord = (vars?: number): string => {
+  const len = requiredLength(vars || 10, 26);
+  return Array(len)
     .fill(null)
     .map(() =>
       Math.random()
@@ -11,7 +30,8 @@ export const randWord = (length: number): string =>
     )
     .join("")
     .replace(/[0-9]/g, "")
-    .slice(0, 5);
+    .slice(0, len);
+};
 
 const multByTwo = (dec: string): string => {
   let newDec = "";

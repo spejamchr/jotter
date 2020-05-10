@@ -42,34 +42,37 @@ export const jotDecoder: Decoder<Jot> = new Decoder((value: any) => {
 
 export const jotToString = (jotA: Jot): string => jotA.join("");
 
-const ILamb = (): Lamb => {
-  const vari = lvariable(randWord(5));
+const ILamb = (len: number): Lamb => {
+  const vari = lvariable(randWord(len));
   return { kind: "labstraction", vari, body: vari };
 };
 
-const J1Lamb = (l: Lamb): Lamb => {
-  const f = lvariable(randWord(5));
-  const a = lvariable(randWord(5));
+const J1Lamb = (l: Lamb, len: number): Lamb => {
+  const f = lvariable(randWord(len));
+  const a = lvariable(randWord(len));
   return labstraction(f, labstraction(a, lapplication(l, lapplication(f, a))));
 };
 
-const SLamb = (): Lamb => {
-  const x = lvariable(randWord(5));
-  const y = lvariable(randWord(5));
-  const z = lvariable(randWord(5));
+const SLamb = (len: number): Lamb => {
+  const x = lvariable(randWord(len));
+  const y = lvariable(randWord(len));
+  const z = lvariable(randWord(len));
   return labstraction(
     x,
     labstraction(y, labstraction(z, lapplication(lapplication(x, z), lapplication(y, z))))
   );
 };
 
-const KLamb = (): Lamb => {
-  const x = lvariable(randWord(5));
-  const y = lvariable(randWord(5));
+const KLamb = (len: number): Lamb => {
+  const x = lvariable(randWord(len));
+  const y = lvariable(randWord(len));
   return labstraction(x, labstraction(y, x));
 };
 
-const J0Lamb = (l: Lamb): Lamb => lapplication(lapplication(l, SLamb()), KLamb());
+const J0Lamb = (l: Lamb, len: number): Lamb =>
+  lapplication(lapplication(l, SLamb(len)), KLamb(len));
 
-export const jotToLamb = (jot: Jot): Lamb =>
-  jot.reduce((l, j) => (j === 1 ? J1Lamb(l) : J0Lamb(l)), ILamb());
+export const jotToLamb = (jot: Jot): Lamb => {
+  const len = jot.length;
+  return jot.reduce((l, j) => (j === 1 ? J1Lamb(l, len) : J0Lamb(l, len)), ILamb(len));
+};

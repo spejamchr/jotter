@@ -3,7 +3,7 @@ import { just, Maybe, nothing } from "maybeasy";
 import { err, ok, Result } from "resulty";
 import { Jot, jotFromString } from "./jot";
 import { Lamb, lambDecoder, lvariable } from "./lamb";
-import { randWord, hasOuterParens, validParens } from "./tools";
+import { hasOuterParens, randWord, validParens } from "./tools";
 
 export interface Combinator {
   kind: "combinator";
@@ -165,10 +165,10 @@ const combToJotString = (comb: Comb): string => {
 
 export const combToJot = (comb: Comb): Jot => jotFromString(combToJotString(comb));
 
-const combinatorToLamb = (comb: Combinator): Lamb => {
-  const x = randWord(5);
-  const y = randWord(5);
-  const z = randWord(5);
+const combinatorToLamb = (comb: Combinator, coms: number): Lamb => {
+  const x = randWord(coms);
+  const y = randWord(coms);
+  const z = randWord(coms);
   const trash = () => lvariable("x");
   switch (comb.value) {
     case "S":
@@ -180,15 +180,16 @@ const combinatorToLamb = (comb: Combinator): Lamb => {
   }
 };
 
-export const combToLamb = (comb: Comb): Lamb => {
+export const combToLamb = (comb: Comb, coms?: number): Lamb => {
+  coms = coms || combToPrettyString(comb).length;
   switch (comb.kind) {
     case "combinator":
-      return combinatorToLamb(comb);
+      return combinatorToLamb(comb, coms);
     case "capplication":
       return {
         kind: "lapplication",
-        first: combToLamb(comb.first),
-        second: combToLamb(comb.second)
+        first: combToLamb(comb.first, coms),
+        second: combToLamb(comb.second, coms)
       };
   }
 };

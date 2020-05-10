@@ -5,7 +5,7 @@ const m = (expr: string): string => {
   const vars = (expr.match(/[a-z_]+/gi) || []).filter((v, i, a) => a.indexOf(v) === i);
   let mangled = vars.reduce((a, v, i) => a.replace(new RegExp(`\\b${v}\\b`, "g"), String(i)), expr);
   for (let i = vars.length - 1; i >= 0; i--) {
-    mangled = mangled.replace(new RegExp(`${i}`, "g"), randWord(5));
+    mangled = mangled.replace(new RegExp(`${i}`, "g"), randWord(vars.length));
   }
   return mangled;
 };
