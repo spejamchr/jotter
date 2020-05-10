@@ -1,7 +1,7 @@
 import Decoder from "jsonous";
 import { err, ok, Result } from "resulty";
 import { capplication, Comb, combinator, findPair } from "./comb";
-import { hasOuterParens, validParens } from "./tools";
+import { hasOuterParens, randWord, validParens } from "./tools";
 
 export interface LVariable {
   kind: "lvariable";
@@ -25,8 +25,15 @@ export const labstraction = (vari: string | LVariable, body: Lamb): LAbstraction
   body
 });
 
-export const labstractionR = (vari: string, body: string): Result<string, LAbstraction> =>
-  lambDecoder.decodeAny(body).map<LAbstraction>(body => labstraction(vari, body));
+const renameVari = (string: string, vari: string, newVari: string) =>
+  string.replace(new RegExp(`\\b${vari}\\b`, "g"), newVari);
+
+export const labstractionR = (vari: string, body: string): Result<string, LAbstraction> => {
+  const newVari = randWord(body.match(/\b[a-z_]+\b/g)?.length);
+  return lambDecoder
+    .decodeAny(renameVari(body, vari, newVari))
+    .map<LAbstraction>(body => labstraction(newVari, body));
+};
 
 export interface LApplication {
   kind: "lapplication";
