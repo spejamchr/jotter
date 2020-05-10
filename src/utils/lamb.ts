@@ -276,3 +276,68 @@ export const lambToComb = (lamb: Lamb): Comb => {
       }
   }
 };
+
+const variReplacer = (vari: LVariable, replacement: Lamb) => (expr: Lamb): Lamb => {
+  const replacer = variReplacer(vari, replacement);
+  switch (expr.kind) {
+    case "lvariable":
+      return expr.value === vari.value ? replacement : expr;
+    case "lapplication":
+      return lapplication(replacer(expr.first), replacer(expr.second));
+    case "labstraction":
+      return labstraction(expr.vari, replacer(expr.body));
+  }
+};
+
+const runApplication = (abstraction: LAbstraction, lamb: Lamb): Lamb =>
+  variReplacer(abstraction.vari, lamb)(abstraction.body);
+
+const betaReduction = (lamb: Lamb): Lamb => {
+  switch (lamb.kind) {
+    case "lvariable":
+      return lamb;
+    case "labstraction":
+      return labstraction(lamb.vari, betaReduction(lamb.body));
+    case "lapplication":
+      switch (lamb.first.kind) {
+        case "lvariable":
+          return lapplication(lamb.first, betaReduction(lamb.second));
+        case "lapplication":
+          return lapplication(betaReduction(lamb.first), betaReduction(lamb.second));
+        case "labstraction":
+          return runApplication(lamb.first, lamb.second);
+      }
+  }
+};
+
+interface LambPair {
+  lamb: Lamb;
+  string: string;
+  i: number;
+}
+
+// The goal here is to find a short expression, not to fully evaluate the expression if that means a
+// longer expression.
+export const reduceLamb = (lamb: Lamb, shortLamb?: LambPair): Lamb => {
+  const maxLength = 4;
+  shortLamb = shortLamb || { string: lambToString(lamb), lamb, i: 0 };
+  let prevLamb: LambPair = shortLamb;
+  let nextReduced = betaReduction(lamb);
+  let nextLamb: LambPair = { lamb: nextReduced, string: lambToString(nextReduced), i: 0 };
+  for (let i = 0; i < 50; i++) {
+    if (nextLamb.string.length > maxLength * shortLamb.string.length) {
+      return shortLamb.lamb;
+    }
+    if (nextLamb.string.length < shortLamb.string.length) {
+      shortLamb = nextLamb;
+    }
+    if (prevLamb.string === nextLamb.string) {
+      return shortLamb.lamb;
+    } else {
+      prevLamb = nextLamb;
+      const nextReduced = betaReduction(nextLamb.lamb);
+      nextLamb = { lamb: nextReduced, string: lambToString(nextReduced), i };
+    }
+  }
+  return shortLamb.i === 0 ? shortLamb.lamb : reduceLamb(nextLamb.lamb, { ...shortLamb, i: 0 });
+};

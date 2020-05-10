@@ -1,8 +1,8 @@
 import { just, Maybe, nothing } from "maybeasy";
 import { ok, Result } from "resulty";
-import { Comb, combDecoder, combToJot, combToLamb, combToPrettyString } from "./comb";
+import { Comb, combDecoder, combToJot, combToLamb, combToPrettyString, reduceComb } from "./comb";
 import { Jot, jotFromString, jotToLamb, jotToString } from "./jot";
-import { Lamb, lambDecoder, lambToComb, lambToString } from "./lamb";
+import { Lamb, lambDecoder, lambToComb, lambToString, reduceLamb } from "./lamb";
 import memoize from "./memoize";
 import { binToDec, error } from "./tools";
 
@@ -40,11 +40,18 @@ class BasisMachine {
     (): Result<string, Lamb> => {
       switch (this.state.kind) {
         case "lamb":
-          return lambDecoder.decodeAny(this.state.string).elseDo(error);
+          return lambDecoder
+            .decodeAny(this.state.string)
+            .map(reduceLamb)
+            .elseDo(error);
         case "comb":
-          return this.comb().map(combToLamb);
+          return this.comb()
+            .map(combToLamb)
+            .map(reduceLamb);
         case "jot":
-          return ok(jotToLamb(this.jot()));
+          return ok<string, Jot>(this.jot())
+            .map(jotToLamb)
+            .map(reduceLamb);
       }
     }
   );
@@ -54,9 +61,20 @@ class BasisMachine {
       switch (this.state.kind) {
         case "lamb":
         case "jot":
-          return this.lamb().map(lambToComb);
+          return this.lamb()
+            .map(lambToComb)
+            .map(reduceComb);
         case "comb":
-          return combDecoder.decodeAny(this.state.string).elseDo(error);
+          return combDecoder
+            .decodeAny(this.state.string)
+            .map(reduceComb)
+            .map(rc => {
+              const fromLamb = reduceComb(lambToComb(reduceLamb(combToLamb(rc))));
+              return combToPrettyString(fromLamb).length < combToPrettyString(rc).length
+                ? fromLamb
+                : rc;
+            })
+            .elseDo(error);
       }
     }
   );

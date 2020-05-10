@@ -193,3 +193,71 @@ export const combToLamb = (comb: Comb, coms?: number): Lamb => {
       };
   }
 };
+
+const resultOfI = (app: CApplication): Maybe<Comb> =>
+  app.first.kind === "combinator" && app.first.value === "I" ? just(app.second) : nothing();
+
+const resultOfK = (app: CApplication): Maybe<Comb> =>
+  app.first.kind === "capplication" &&
+  app.first.first.kind === "combinator" &&
+  app.first.first.value === "K"
+    ? just(app.first.second)
+    : nothing();
+
+const resultOfS = (app: CApplication): Maybe<Comb> =>
+  app.first.kind === "capplication" &&
+  app.first.first.kind === "capplication" &&
+  app.first.first.first.kind === "combinator" &&
+  app.first.first.first.value === "S"
+    ? just(
+        capplication(
+          capplication(app.first.first.second, app.second),
+          capplication(app.first.second, app.second)
+        )
+      )
+    : nothing();
+
+const runApplication = (app: CApplication): Comb =>
+  resultOfI(app)
+    .orElse(() => resultOfK(app))
+    .orElse(() => resultOfS(app))
+    .getOrElse(() => capplication(reduceOnce(app.first), reduceOnce(app.second)));
+
+export const reduceOnce = (comb: Comb): Comb => {
+  switch (comb.kind) {
+    case "combinator":
+      return comb;
+    case "capplication":
+      return runApplication(comb);
+  }
+};
+
+interface CombPair {
+  comb: Comb;
+  string: string;
+  i: number;
+}
+
+export const reduceComb = (comb: Comb, shortComb?: CombPair): Comb => {
+  const maxLength = 4;
+  shortComb = shortComb || { string: combToString(comb), comb, i: 0 };
+  let prevComb: CombPair = shortComb;
+  let nextReduced = reduceOnce(comb);
+  let nextComb: CombPair = { comb: nextReduced, string: combToString(nextReduced), i: 0 };
+  for (let i = 0; i < 100; i++) {
+    if (nextComb.string.length > maxLength * shortComb.string.length) {
+      return shortComb.comb;
+    }
+    if (nextComb.string.length < shortComb.string.length) {
+      shortComb = nextComb;
+    }
+    if (prevComb.string === nextComb.string) {
+      return shortComb.comb;
+    } else {
+      prevComb = nextComb;
+      const nextReduced = reduceOnce(nextComb.comb);
+      nextComb = { comb: nextReduced, string: combToString(nextReduced), i };
+    }
+  }
+  return shortComb.i === 0 ? shortComb.comb : reduceComb(nextComb.comb, { ...shortComb, i: 0 });
+};
