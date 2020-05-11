@@ -10,7 +10,10 @@ const m = (expr: string): string => {
   return mangled;
 };
 
-export const Y = "(^f.(^x.(f (x x)) ^x.(f (x x))))";
+export const Y = "(^f.(^x.f (x x)) (^x.f (x x)))";
+export const S = "^x.^y.^z.x z (y z)";
+export const K = "^x.^y.x";
+export const I = "^x.x";
 
 export const ZERO = "(^x.^y.y)";
 export const ONE = "(^x.^y.(x y))";

@@ -217,9 +217,19 @@ const resultOfS = (app: CApplication): Maybe<Comb> =>
       )
     : nothing();
 
+const resultOfSKX = (app: CApplication): Maybe<Comb> =>
+  app.first.kind === "capplication" &&
+  app.first.first.kind === "combinator" &&
+  app.first.first.value === "S" &&
+  app.first.second.kind === "combinator" &&
+  app.first.second.value === "K"
+    ? just(combinator("I"))
+    : nothing();
+
 const runApplication = (app: CApplication): Comb =>
   resultOfI(app)
     .orElse(() => resultOfK(app))
+    .orElse(() => resultOfSKX(app))
     .orElse(() => resultOfS(app))
     .getOrElse(() => capplication(reduceOnce(app.first), reduceOnce(app.second)));
 

@@ -13,7 +13,7 @@ const chanceOfNoCollision = (vars: number, chars: number, length: number): numbe
 };
 
 const requiredLength = (vars: number, chars: number) => {
-  if (vars === 1) return 1;
+  if (vars === 1) return 3;
   let length = 3;
   while (chanceOfNoCollision(vars, chars, length) < DesiredChanceOfNoCollision) length++;
   return length;
