@@ -11,6 +11,7 @@ const m = (expr: string): string => {
 };
 
 export const Y = "(^f.(^x.f (x x)) (^x.f (x x)))";
+export const Z = "^g.(^x.g (^v.x x v)) (^x.g (^v.x x v))";
 export const S = "^x.^y.^z.x z (y z)";
 export const K = "^x.^y.x";
 export const I = "^x.x";
@@ -21,6 +22,9 @@ export const TWO = "(^x.^y.(x (x y)))";
 export const THREE = "(^x.^y.(x (x (x y))))";
 export const FOUR = "(^x.^y.(x (x (x (x y)))))";
 export const FIVE = "(^x.^y.(x (x (x (x (x y))))))";
+export const SIX = "(^x.^y.(x (x (x (x (x (x y)))))))";
+export const SEVEN = "(^x.^y.(x (x (x (x (x (x (x y))))))))";
+export const EIGHT = "(^x.^y.(x (x (x (x (x (x (x (x y)))))))))";
 export const NINE = "(^x.^y.(x (x (x (x (x (x (x (x (x y))))))))))";
 export const TEN = "(^x.^y.(x (x (x (x (x (x (x (x (x (x y)))))))))))";
 
@@ -28,7 +32,7 @@ export const INCREMENT = "(^n.^x.^y.(x ((n x) y)))";
 export const PLUS = "(^m.^n.^f.^x.((m f) ((n f) x)))";
 export const MULT = "(^m.^n.^f.^x.((m (n f)) x))";
 export const EXP = "(^m.^n.(n m))";
-export const DECREMENT = "(^n.^f.^x.(((n ^g.^h.(h (g f))) ^u.x) ^u.u))";
+export const DECREMENT = "(^n.^f.^x.(((n (^g.^h.(h (g f)))) (^u.x)) (^u.u)))";
 export const SUBTRACT = `(^m.^o.((o ${m(DECREMENT)}) m))`;
 
 // 128513: Unicode code point for an emoji
@@ -92,31 +96,31 @@ export const IS_EQUAL = `(^m.^n.((${m(AND)} ((${m(IS_LESS_OR_EQUAL)} m) n)) ((${
 export const MINIMOD = `(^mod.^n.^q.((((${m(IS_LESS_OR_EQUAL)} n) q) ((mod ((${m(
   SUBTRACT
 )} n) q)) q)) n))`;
-export const MOD = `(${m(Y)} ${m(MINIMOD)})`;
+export const MOD = `(${m(Z)} ${m(MINIMOD)})`;
 
 export const MINIDIV = `(^div.^n.^q.((((${m(IS_LESS_OR_EQUAL)} n) q) (${m(INCREMENT)} ((div ((${m(
   SUBTRACT
 )} n) q)) q))) ${m(ZERO)}))`;
-export const DIV = `(${m(Y)} ${m(MINIDIV)})`;
+export const DIV = `(${m(Z)} ${m(MINIDIV)})`;
 
 // Pairs
 export const PAIR = "(^a.^b.^f.((f a) b))";
 export const FIRST = "(^p.(p ^a.^b.a))";
 export const SECOND = "(^p.(p ^a.^b.b))";
 
-const EMPTY_LIST = "(^c.^n.n)";
-// const IS_EMPTY = `(^l.((l ^h.^t.${m(FALSE_)}) ${m(TRUE_)}))`;
+export const EMPTY_LIST = "(^c.^n.n)";
+export const IS_EMPTY = `(^l.((l ^h.^t.${m(FALSE_)}) ${m(TRUE_)}))`;
 export const CONS = "(^h.^t.^c.^n.((c h) ((t c) n)))";
 export const HEAD = `(^l.((l ^h.^t.h) ${m(FALSE_)}))`;
 export const TAIL = "(^l.^c.^n.(((l ^h.^t.^g.((g h) (t c))) ^t.n) ^h.^t.t))";
 
-const FOLD_RIGHT = PAIR;
+export const FOLD_RIGHT = PAIR;
 export const MAP = `(^f.((${m(FOLD_RIGHT)} ^x.(${m(CONS)} (f x))) ${m(EMPTY_LIST)}))`;
 
 export const MINIRANGE = `(^range.^min.^max.((((${m(IS_LESS_OR_EQUAL)} min) max) ((${m(
   CONS
 )} min) ((range (${m(INCREMENT)} min)) max))) ${m(EMPTY_LIST)}))`;
-export const RANGE = `(${m(Y)} ${m(MINIRANGE)})`;
+export const RANGE = `(${m(Z)} ${m(MINIRANGE)})`;
 export const APPEND = `(${m(FOLD_RIGHT)} ${m(CONS)})`;
 export const PUSH = `(^value.(${m(APPEND)} ((${m(CONS)} value) ${m(EMPTY_LIST)})))`;
 // const REVERSE = `((${m(FOLD_RIGHT)} ${m(PUSH)}) ${m(EMPTY_LIST)})`;
@@ -133,7 +137,7 @@ export const HUNDRED =
 const MINI_TO_DIGITS = `(^to_digits.^n.((${m(PUSH)} ((${m(MOD)} n) ${m(TEN)})) ((((${m(
   IS_LESS_OR_EQUAL
 )} n) ${m(NINE)}) ${m(EMPTY_LIST)}) (to_digits ((${m(DIV)} n) ${m(TEN)})))))`;
-const TO_DIGITS = `(${m(Y)} ${m(MINI_TO_DIGITS)})`;
+const TO_DIGITS = `(${m(Z)} ${m(MINI_TO_DIGITS)})`;
 const TO_STRING = TO_DIGITS;
 
 export const YES = `((${m(CONS)} ${m(ZERO)}) ((${m(CONS)} ${m(ONE)}) ((${m(CONS)} ${m(TWO)}) ${m(

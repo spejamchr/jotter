@@ -25,13 +25,13 @@ export const labstraction = (vari: string | LVariable, body: Lamb): LAbstraction
   body
 });
 
-const renameVari = (string: string, vari: string, newVari: string) =>
+const renameVariS = (string: string, vari: string, newVari: string) =>
   string.replace(new RegExp(`\\b${vari}\\b`, "g"), newVari);
 
 export const labstractionR = (vari: string, body: string): Result<string, LAbstraction> => {
   const newVari = randWord(body.match(/\b[a-z_]+\b/g)?.length);
   return lambDecoder
-    .decodeAny(renameVari(body, vari, newVari))
+    .decodeAny(renameVariS(body, vari, newVari))
     .map<LAbstraction>(body => labstraction(newVari, body));
 };
 
@@ -277,6 +277,18 @@ export const lambToComb = (lamb: Lamb): Comb => {
   }
 };
 
+const alphaReduction = (lamb: Lamb): Lamb => {
+  switch (lamb.kind) {
+    case "lvariable":
+      return lamb;
+    case "lapplication":
+      return lapplication(alphaReduction(lamb.first), alphaReduction(lamb.second));
+    case "labstraction":
+      const newVari = lvariable(randWord(lambToExactString(lamb).match(/\b[a-z_]+\b/g)?.length));
+      return labstraction(newVari, alphaReduction(variReplacer(lamb.vari, newVari)(lamb.body)));
+  }
+};
+
 const variReplacer = (vari: LVariable, replacement: Lamb) => (expr: Lamb): Lamb => {
   const replacer = variReplacer(vari, replacement);
   switch (expr.kind) {
@@ -322,7 +334,7 @@ export const reduceLamb = (lamb: Lamb, shortLamb?: LambPair): Lamb => {
   const maxLength = 4;
   shortLamb = shortLamb || { string: lambToString(lamb), lamb, i: 0 };
   let prevLamb: LambPair = shortLamb;
-  let nextReduced = betaReduction(lamb);
+  let nextReduced = alphaReduction(betaReduction(lamb));
   let nextLamb: LambPair = { lamb: nextReduced, string: lambToString(nextReduced), i: 0 };
   for (let i = 0; i < 50; i++) {
     if (nextLamb.string.length > maxLength * shortLamb.string.length) {
@@ -335,7 +347,7 @@ export const reduceLamb = (lamb: Lamb, shortLamb?: LambPair): Lamb => {
       return shortLamb.lamb;
     } else {
       prevLamb = nextLamb;
-      const nextReduced = betaReduction(nextLamb.lamb);
+      const nextReduced = alphaReduction(betaReduction(nextLamb.lamb));
       nextLamb = { lamb: nextReduced, string: lambToString(nextReduced), i };
     }
   }

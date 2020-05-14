@@ -12,12 +12,18 @@ export const effect = (e: (func: Func) => void, f?: Func): Func => arg => {
 
 export const funcAsBoolean = (func: Func): Maybe<boolean> => {
   const bool = new JustOnce<boolean>();
+  const i: Func = x => x;
+  let valid = true;
   try {
-    func(effect(() => bool.set(true)))(effect(() => bool.set(false)))(x => x);
+    func(effect(f => (f === i ? bool.set(true) : (valid = false))))(
+      effect(f => (f === i ? bool.set(false) : (valid = false)))
+    )(i);
   } catch (e) {
     error("Infinite loop?", e);
     return nothing();
   }
+  if (!valid) return nothing();
+
   switch (bool.kind()) {
     case "not-set":
     case "over-set":
