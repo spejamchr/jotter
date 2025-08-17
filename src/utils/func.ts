@@ -1,22 +1,24 @@
 import { just, Maybe, nothing } from "maybeasy";
-import { error } from "./tools";
 import JustOnce from "./justOnce";
+import { error } from "./tools";
 
 export type Func = (a: Func) => Func;
 
-export const effect = (e: (func: Func) => void, f?: Func): Func => arg => {
-  f = f || (x => x);
-  e(arg);
-  return f(arg);
-};
+export const effect =
+  (e: (func: Func) => void, f?: Func): Func =>
+  (arg) => {
+    f = f || ((x) => x);
+    e(arg);
+    return f(arg);
+  };
 
 export const funcAsBoolean = (func: Func): Maybe<boolean> => {
   const bool = new JustOnce<boolean>();
-  const i: Func = x => x;
+  const i: Func = (x) => x;
   let valid = true;
   try {
-    func(effect(f => (f === i ? bool.set(true) : (valid = false))))(
-      effect(f => (f === i ? bool.set(false) : (valid = false)))
+    func(effect((f) => (f === i ? bool.set(true) : (valid = false))))(
+      effect((f) => (f === i ? bool.set(false) : (valid = false))),
     )(i);
   } catch (e) {
     error("Infinite loop?", e);
@@ -39,12 +41,12 @@ export const funcAsNumber = (func: Func): Maybe<number> => {
   const notNumber = effect(() => (valid = false));
   try {
     func(
-      effect(f => {
+      effect((f) => {
         n += 1;
         if (f !== notNumber) {
           valid = false;
         }
-      })
+      }),
     )(notNumber);
   } catch (e) {
     error("Infinite loop?", e);
@@ -57,7 +59,7 @@ export const funcAsArray = (func: Func): Maybe<Func[]> => {
   let a: Func[] = [];
   let valid = true;
 
-  const tester = effect(f => {
+  const tester = effect((f) => {
     if (f !== tester) {
       valid = false;
     }
@@ -66,9 +68,9 @@ export const funcAsArray = (func: Func): Maybe<Func[]> => {
   try {
     func(
       effect(
-        f => a.push(f),
-        _ => tester
-      )
+        (f) => a.push(f),
+        (_) => tester,
+      ),
     )(tester);
   } catch (e) {
     error("Infinite loop?", e);
@@ -78,9 +80,9 @@ export const funcAsArray = (func: Func): Maybe<Func[]> => {
 };
 
 export const funcAsString = (func: Func): Maybe<string> =>
-  funcAsArray(func).map(a =>
+  funcAsArray(func).map((a) =>
     a
       .map(funcAsNumber)
-      .map(mi => mi.map(String.fromCodePoint).getOrElseValue("�"))
-      .join("")
+      .map((mi) => mi.map(String.fromCodePoint).getOrElseValue("�"))
+      .join(""),
   );

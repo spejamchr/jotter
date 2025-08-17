@@ -23,11 +23,7 @@ export const randWord = (vars?: number): string => {
   const len = requiredLength(vars || 10, 26);
   return Array(len)
     .fill(null)
-    .map(() =>
-      Math.random()
-        .toString(36)
-        .substr(2)
-    )
+    .map(() => Math.random().toString(36).slice(2))
     .join("")
     .replace(/[0-9]/g, "")
     .slice(0, len);

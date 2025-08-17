@@ -32,66 +32,49 @@ class BasisMachine {
   constructor(kind: BasisKind, string: string) {
     this.state = {
       kind,
-      string
+      string,
     };
   }
 
-  lamb = memoize(
-    (): Result<string, Lamb> => {
-      switch (this.state.kind) {
-        case "lamb":
-          return lambDecoder
-            .decodeAny(this.state.string)
-            .map(reduceLamb)
-            .elseDo(error);
-        case "comb":
-          return this.comb()
-            .map(combToLamb)
-            .map(reduceLamb);
-        case "jot":
-          return ok<string, Jot>(this.jot())
-            .map(jotToLamb)
-            .map(reduceLamb);
-      }
+  lamb = memoize((): Result<string, Lamb> => {
+    switch (this.state.kind) {
+      case "lamb":
+        return lambDecoder.decodeAny(this.state.string).map(reduceLamb).elseDo(error);
+      case "comb":
+        return this.comb().map(combToLamb).map(reduceLamb);
+      case "jot":
+        return ok<string, Jot>(this.jot()).map(jotToLamb).map(reduceLamb);
     }
-  );
+  });
 
-  comb = memoize(
-    (): Result<string, Comb> => {
-      switch (this.state.kind) {
-        case "lamb":
-        case "jot":
-          return this.lamb()
-            .map(lambToComb)
-            .map(reduceComb);
-        case "comb":
-          return combDecoder
-            .decodeAny(this.state.string)
-            .map(reduceComb)
-            .map(rc => {
-              const fromLamb = reduceComb(lambToComb(reduceLamb(combToLamb(rc))));
-              return combToPrettyString(fromLamb).length < combToPrettyString(rc).length
-                ? fromLamb
-                : rc;
-            })
-            .elseDo(error);
-      }
+  comb = memoize((): Result<string, Comb> => {
+    switch (this.state.kind) {
+      case "lamb":
+      case "jot":
+        return this.lamb().map(lambToComb).map(reduceComb);
+      case "comb":
+        return combDecoder
+          .decodeAny(this.state.string)
+          .map(reduceComb)
+          .map((rc) => {
+            const fromLamb = reduceComb(lambToComb(reduceLamb(combToLamb(rc))));
+            return combToPrettyString(fromLamb).length < combToPrettyString(rc).length
+              ? fromLamb
+              : rc;
+          })
+          .elseDo(error);
     }
-  );
+  });
 
-  jot = memoize(
-    (): Jot => {
-      switch (this.state.kind) {
-        case "lamb":
-        case "comb":
-          return this.comb()
-            .map(combToJot)
-            .getOrElseValue([]);
-        case "jot":
-          return jotFromString(this.state.string);
-      }
+  jot = memoize((): Jot => {
+    switch (this.state.kind) {
+      case "lamb":
+      case "comb":
+        return this.comb().map(combToJot).getOrElseValue([]);
+      case "jot":
+        return jotFromString(this.state.string);
     }
-  );
+  });
 
   lambStr = memoize((): string => {
     switch (this.state.kind) {
@@ -99,9 +82,7 @@ class BasisMachine {
         return this.state.string;
       case "comb":
       case "jot":
-        return this.lamb()
-          .map(lambToString)
-          .getOrElseValue("");
+        return this.lamb().map(lambToString).getOrElseValue("");
     }
   });
 
@@ -111,9 +92,7 @@ class BasisMachine {
         return this.state.string;
       case "lamb":
       case "jot":
-        return this.comb()
-          .map(combToPrettyString)
-          .getOrElseValue("");
+        return this.comb().map(combToPrettyString).getOrElseValue("");
     }
   });
 
@@ -130,20 +109,16 @@ class BasisMachine {
   currentValue = memoize((): string => {
     switch (this.state.kind) {
       case "lamb":
-        return this.lamb()
-          .map(lambToString)
-          .getOrElseValue("Invalid Lambda Expression");
+        return this.lamb().map(lambToString).getOrElseValue("Invalid Lambda Expression");
       case "comb":
-        return this.comb()
-          .map(combToPrettyString)
-          .getOrElseValue("Invalid Combinatory Expression");
+        return this.comb().map(combToPrettyString).getOrElseValue("Invalid Combinatory Expression");
       case "jot":
         return "...";
     }
   });
 
   decStr = memoize(
-    (): Maybe<string> => (this.jotStr().length < 1000 ? just(binToDec(this.jotStr())) : nothing())
+    (): Maybe<string> => (this.jotStr().length < 1000 ? just(binToDec(this.jotStr())) : nothing()),
   );
 }
 

@@ -1,4 +1,4 @@
-import Decoder from "jsonous";
+import { Decoder } from "jsonous";
 import { just, Maybe, nothing } from "maybeasy";
 import { err, ok, Result } from "resulty";
 import { Jot, jotFromString } from "./jot";
@@ -12,7 +12,7 @@ export interface Combinator {
 
 export const combinator = (value: Combinator["value"]): Combinator => ({
   kind: "combinator",
-  value
+  value,
 });
 
 export interface CApplication {
@@ -24,13 +24,13 @@ export interface CApplication {
 export const capplication = (first: Comb, second: Comb): CApplication => ({
   kind: "capplication",
   first,
-  second
+  second,
 });
 
 export const capplicationR = (first: string, second: string): Result<string, CApplication> =>
   combDecoder
     .decodeAny(first)
-    .map(first => ({ first }))
+    .map((first) => ({ first }))
     .assign("second", combDecoder.decodeAny(second))
     .map(({ first, second }) => capplication(first, second));
 
@@ -119,10 +119,10 @@ export const combDecoder: Decoder<Comb> = new Decoder((value: any) => {
   }
   value = value
     .split("")
-    .filter(c => c !== " ")
+    .filter((c) => c !== " ")
     .reduce(
       (s, c, i) => (i === 0 ? c : s.slice(-1) === "(" || c === ")" ? `${s}${c}` : `${s} ${c}`),
-      ""
+      "",
     );
   value = pairComb(value);
 
@@ -145,10 +145,7 @@ export const combToString = (comb: Comb, second?: boolean): string => {
   }
 };
 
-export const combToPrettyString = (comb: Comb): string =>
-  combToString(comb)
-    .split(" ")
-    .join("");
+export const combToPrettyString = (comb: Comb): string => combToString(comb).split(" ").join("");
 
 const SJot = "11111000";
 const KJot = "11100";
@@ -189,7 +186,7 @@ export const combToLamb = (comb: Comb, coms?: number): Lamb => {
       return {
         kind: "lapplication",
         first: combToLamb(comb.first, coms),
-        second: combToLamb(comb.second, coms)
+        second: combToLamb(comb.second, coms),
       };
   }
 };
@@ -212,8 +209,8 @@ const resultOfS = (app: CApplication): Maybe<Comb> =>
     ? just(
         capplication(
           capplication(app.first.first.second, app.second),
-          capplication(app.first.second, app.second)
-        )
+          capplication(app.first.second, app.second),
+        ),
       )
     : nothing();
 

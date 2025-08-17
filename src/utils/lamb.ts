@@ -1,4 +1,4 @@
-import Decoder from "jsonous";
+import { Decoder } from "jsonous";
 import { err, ok, Result } from "resulty";
 import { capplication, Comb, combinator, findPair } from "./comb";
 import { hasOuterParens, randWord, validParens } from "./tools";
@@ -10,7 +10,7 @@ export interface LVariable {
 
 export const lvariable = (value: string): LVariable => ({
   kind: "lvariable",
-  value
+  value,
 });
 
 export interface LAbstraction {
@@ -22,7 +22,7 @@ export interface LAbstraction {
 export const labstraction = (vari: string | LVariable, body: Lamb): LAbstraction => ({
   kind: "labstraction",
   vari: typeof vari === "string" ? lvariable(vari) : vari,
-  body
+  body,
 });
 
 const renameVariS = (string: string, vari: string, newVari: string) =>
@@ -32,7 +32,7 @@ export const labstractionR = (vari: string, body: string): Result<string, LAbstr
   const newVari = randWord(body.match(/\b[a-z_]+\b/g)?.length);
   return lambDecoder
     .decodeAny(renameVariS(body, vari, newVari))
-    .map<LAbstraction>(body => labstraction(newVari, body));
+    .map<LAbstraction>((body) => labstraction(newVari, body));
 };
 
 export interface LApplication {
@@ -44,13 +44,13 @@ export interface LApplication {
 export const lapplication = (first: Lamb, second: Lamb): LApplication => ({
   kind: "lapplication",
   first,
-  second
+  second,
 });
 
 export const lapplicationR = (first: string, second: string): Result<string, LApplication> =>
   lambDecoder
     .decodeAny(first)
-    .map(first => ({ first }))
+    .map((first) => ({ first }))
     .assign("second", lambDecoder.decodeAny(second))
     .map(({ first, second }) => lapplication(first, second));
 
@@ -289,17 +289,19 @@ const alphaReduction = (lamb: Lamb): Lamb => {
   }
 };
 
-const variReplacer = (vari: LVariable, replacement: Lamb) => (expr: Lamb): Lamb => {
-  const replacer = variReplacer(vari, replacement);
-  switch (expr.kind) {
-    case "lvariable":
-      return expr.value === vari.value ? replacement : expr;
-    case "lapplication":
-      return lapplication(replacer(expr.first), replacer(expr.second));
-    case "labstraction":
-      return labstraction(expr.vari, replacer(expr.body));
-  }
-};
+const variReplacer =
+  (vari: LVariable, replacement: Lamb) =>
+  (expr: Lamb): Lamb => {
+    const replacer = variReplacer(vari, replacement);
+    switch (expr.kind) {
+      case "lvariable":
+        return expr.value === vari.value ? replacement : expr;
+      case "lapplication":
+        return lapplication(replacer(expr.first), replacer(expr.second));
+      case "labstraction":
+        return labstraction(expr.vari, replacer(expr.body));
+    }
+  };
 
 const runApplication = (abstraction: LAbstraction, lamb: Lamb): Lamb =>
   variReplacer(abstraction.vari, lamb)(abstraction.body);

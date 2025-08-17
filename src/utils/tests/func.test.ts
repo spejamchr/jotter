@@ -7,14 +7,13 @@ import {
   FIVE,
   INCREMENT,
   IS_LESS_OR_EQUAL,
-  MOD,
   ONE,
   SEVEN,
   SIX,
   SUBTRACT,
   THREE,
   TWO,
-  ZERO
+  ZERO,
 } from "../lambExprs";
 
 const lambToNumber = (str: string): string =>
@@ -24,10 +23,12 @@ const lambToNumber = (str: string): string =>
 
 const lambToNumberArray = (str: string): string =>
   funcAsArray(jotToFunc(new BasisMachine("lamb", str).jot()))
-    .map(a =>
-      a.map(funcAsNumber).map(mn => mn.map(String).getOrElseValue("funcAsNumber returned nothing"))
+    .map((a) =>
+      a
+        .map(funcAsNumber)
+        .map((mn) => mn.map(String).getOrElseValue("funcAsNumber returned nothing")),
     )
-    .map(a => `[ ${a.join(", ")} ]`)
+    .map((a) => `[ ${a.join(", ")} ]`)
     .getOrElseValue("funcAsArray returned nothing");
 
 test("[funcAsNumber] interpret zero", () => {
@@ -65,6 +66,6 @@ test("[funcAsArray] interpret empty array", () => {
 
 test("[funcAsArray] interpret simple array", () => {
   expect(
-    lambToNumberArray(`${CONS} ${ZERO} (${CONS} ${ONE} (${CONS} ${TWO} ${EMPTY_LIST}))`)
+    lambToNumberArray(`${CONS} ${ZERO} (${CONS} ${ONE} (${CONS} ${TWO} ${EMPTY_LIST}))`),
   ).toEqual("[ 0, 1, 2 ]");
 });

@@ -38,11 +38,11 @@ export const SUBTRACT = `(^m.^o.((o ${m(DECREMENT)}) m))`;
 // 128513: Unicode code point for an emoji
 // 18**4 + 12**4 + 7**4 + 4*10**2
 export const NUM = `((${m(PLUS)} ((${m(EXP)} ((${m(PLUS)} ((${m(EXP)} ${m(FOUR)}) ${m(TWO)})) ${m(
-  TWO
+  TWO,
 )})) ${m(FOUR)})) ((${m(PLUS)} ((${m(EXP)} ((${m(PLUS)} ((${m(EXP)} ${m(TWO)}) ${m(THREE)})) ${m(
-  FOUR
+  FOUR,
 )})) ${m(FOUR)})) ((${m(PLUS)} ((${m(EXP)} ((${m(PLUS)} ${m(FIVE)}) ${m(TWO)})) ${m(FOUR)})) ((${m(
-  MULT
+  MULT,
 )} ${m(FOUR)}) ((${m(EXP)} ${m(TEN)}) ${m(TWO)})))))`;
 
 export const makeSince = () => {
@@ -90,16 +90,16 @@ export const AND = "(^ba.^bb.((ba bb) ba))";
 export const IS_ZERO = `(^n.((n ^x.${m(FALSE_)}) ${m(TRUE_)}))`;
 export const IS_LESS_OR_EQUAL = `(^m.^n.(${m(IS_ZERO)} ((${m(SUBTRACT)} m) n)))`;
 export const IS_EQUAL = `(^m.^n.((${m(AND)} ((${m(IS_LESS_OR_EQUAL)} m) n)) ((${m(
-  IS_LESS_OR_EQUAL
+  IS_LESS_OR_EQUAL,
 )} n) m)))`;
 
 export const MINIMOD = `(^mod.^n.^q.((((${m(IS_LESS_OR_EQUAL)} n) q) ((mod ((${m(
-  SUBTRACT
+  SUBTRACT,
 )} n) q)) q)) n))`;
 export const MOD = `(${m(Z)} ${m(MINIMOD)})`;
 
 export const MINIDIV = `(^div.^n.^q.((((${m(IS_LESS_OR_EQUAL)} n) q) (${m(INCREMENT)} ((div ((${m(
-  SUBTRACT
+  SUBTRACT,
 )} n) q)) q))) ${m(ZERO)}))`;
 export const DIV = `(${m(Z)} ${m(MINIDIV)})`;
 
@@ -118,7 +118,7 @@ export const FOLD_RIGHT = PAIR;
 export const MAP = `(^f.((${m(FOLD_RIGHT)} ^x.(${m(CONS)} (f x))) ${m(EMPTY_LIST)}))`;
 
 export const MINIRANGE = `(^range.^min.^max.((((${m(IS_LESS_OR_EQUAL)} min) max) ((${m(
-  CONS
+  CONS,
 )} min) ((range (${m(INCREMENT)} min)) max))) ${m(EMPTY_LIST)}))`;
 export const RANGE = `(${m(Z)} ${m(MINIRANGE)})`;
 export const APPEND = `(${m(FOLD_RIGHT)} ${m(CONS)})`;
@@ -135,13 +135,13 @@ export const HUNDRED =
   "(^x.^y.(x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x (x y)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))";
 
 const MINI_TO_DIGITS = `(^to_digits.^n.((${m(PUSH)} ((${m(MOD)} n) ${m(TEN)})) ((((${m(
-  IS_LESS_OR_EQUAL
+  IS_LESS_OR_EQUAL,
 )} n) ${m(NINE)}) ${m(EMPTY_LIST)}) (to_digits ((${m(DIV)} n) ${m(TEN)})))))`;
 const TO_DIGITS = `(${m(Z)} ${m(MINI_TO_DIGITS)})`;
 const TO_STRING = TO_DIGITS;
 
 export const YES = `((${m(CONS)} ${m(ZERO)}) ((${m(CONS)} ${m(ONE)}) ((${m(CONS)} ${m(TWO)}) ${m(
-  EMPTY_LIST
+  EMPTY_LIST,
 )})))`;
 // log(YES);
 // lambDecoder
@@ -152,17 +152,17 @@ export const YES = `((${m(CONS)} ${m(ZERO)}) ((${m(CONS)} ${m(ONE)}) ((${m(CONS)
 //   .do(log);
 
 export const FIZZ = `((${m(CONS)} ${m(F_)}) ((${m(CONS)} ${m(I_)}) ((${m(CONS)} ${m(Z_)}) ((${m(
-  CONS
+  CONS,
 )} ${m(Z_)}) ${m(EMPTY_LIST)}))))`;
 
 export const BUZZ = `((${m(CONS)} ${m(B_)}) ((${m(CONS)} ${m(U_)}) ((${m(CONS)} ${m(Z_)}) ((${m(
-  CONS
+  CONS,
 )} ${m(Z_)}) ${m(EMPTY_LIST)}))))`;
 
 export const FIZZBUZZ = `((${m(MAP)} ^num.(((${m(IS_ZERO)} ((${m(MOD)} num) ${m(FIFTEEN)})) ((${m(
-  APPEND
+  APPEND,
 )} ${m(BUZZ)}) ${m(FIZZ)})) (((${m(IS_ZERO)} ((${m(MOD)} num) ${m(THREE)})) ${m(FIZZ)}) (((${m(
-  IS_ZERO
+  IS_ZERO,
 )} ((${m(MOD)} num) ${m(FIVE)})) ${m(BUZZ)}) (${m(TO_STRING)} num))))) ((${m(RANGE)} ${m(ONE)}) ${m(
-  HUNDRED
+  HUNDRED,
 )}))`;

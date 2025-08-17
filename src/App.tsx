@@ -79,7 +79,7 @@ function App() {
               <td>
                 {basis
                   .decStr()
-                  .map(s => `(length: ${s.length})`)
+                  .map((s) => `(length: ${s.length})`)
                   .getOrElseValue("")}
               </td>
             </tr>
@@ -87,38 +87,29 @@ function App() {
         </table>
 
         {func
-          .map(f => (
+          .map((f) => (
             <>
               <p>As boolean:</p>
-              <code>
-                {funcAsBoolean(f)
-                  .map(String)
-                  .getOrElseValue("not a boolean")}
-              </code>
+              <code>{funcAsBoolean(f).map(String).getOrElseValue("not a boolean")}</code>
               <p>As number:</p>
-              <code>
-                N:{" "}
-                {funcAsNumber(f)
-                  .map(String)
-                  .getOrElseValue("not a number")}
-              </code>
+              <code>N: {funcAsNumber(f).map(String).getOrElseValue("not a number")}</code>
               <p>As string:</p>
               <code>
                 S:{" "}
                 {funcAsString(f)
                   .map(JSON.stringify)
-                  .map(s => (s.length < 40 ? s : `${s.slice(0, 40)}...`))
+                  .map((s) => (s.length < 40 ? s : `${s.slice(0, 40)}...`))
                   .getOrElseValue("not a string")}
               </code>
               <p>As array of numbers:</p>
               <code>
                 A:{" "}
                 {funcAsArray(f)
-                  .map(a =>
-                    a.map(funcAsNumber).map(mn => mn.map(String).getOrElseValue("not a number"))
+                  .map((a) =>
+                    a.map(funcAsNumber).map((mn) => mn.map(String).getOrElseValue("not a number")),
                   )
-                  .map(a => (a.length < 20 ? a : a.slice(0, 20).concat(["..."])))
-                  .map(a => `[ ${a.join(", ")} ]`)
+                  .map((a) => (a.length < 20 ? a : a.slice(0, 20).concat(["..."])))
+                  .map((a) => `[ ${a.join(", ")} ]`)
                   .getOrElseValue("not an array")}
               </code>
             </>

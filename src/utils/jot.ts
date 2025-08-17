@@ -1,4 +1,4 @@
-import Decoder from "jsonous";
+import { Decoder } from "jsonous";
 import { err, ok } from "resulty";
 import { Func } from "./func";
 import { labstraction, Lamb, lapplication, lvariable } from "./lamb";
@@ -6,16 +6,16 @@ import { randWord } from "./tools";
 
 export type Jot = (0 | 1)[];
 
-const S: Func = x => y => z => x(z)(y(z));
-const K: Func = x => _ => x;
-const I: Func = x => x;
+const S: Func = (x) => (y) => (z) => x(z)(y(z));
+const K: Func = (x) => (_) => x;
+const I: Func = (x) => x;
 
-const J1: Func = v => f => a => v(f(a));
+const J1: Func = (v) => (f) => (a) => v(f(a));
 
 export const jotToFunc = (program: Jot): Func => program.reduce((v, b) => (b ? J1(v) : v(S)(K)), I);
 
 // Always succeeds. Converts any character that's not 0 to 1.
-export const jotFromString = (str: string): Jot => str.split("").map(c => (c === "0" ? 0 : 1));
+export const jotFromString = (str: string): Jot => str.split("").map((c) => (c === "0" ? 0 : 1));
 
 export const jotDecoder: Decoder<Jot> = new Decoder((value: any) => {
   if (typeof value !== "string") {
@@ -59,7 +59,7 @@ const SLamb = (len: number): Lamb => {
   const z = lvariable(randWord(len));
   return labstraction(
     x,
-    labstraction(y, labstraction(z, lapplication(lapplication(x, z), lapplication(y, z))))
+    labstraction(y, labstraction(z, lapplication(lapplication(x, z), lapplication(y, z)))),
   );
 };
 

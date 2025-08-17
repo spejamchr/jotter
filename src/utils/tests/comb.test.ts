@@ -4,18 +4,11 @@ import { NUM, Y } from "../lambExprs";
 import testFunctionWorks from "./testFunctionWorks";
 
 const testCombDecoder = testFunctionWorks("combDecoder & combToPrettyString", (str: string) =>
-  combDecoder
-    .decodeAny(str)
-    .map(combToPrettyString)
-    .getOrElseValue("")
+  combDecoder.decodeAny(str).map(combToPrettyString).getOrElseValue(""),
 );
 
 const testCombReducerWorks = testFunctionWorks("reduceComb", (str: string) =>
-  combDecoder
-    .decodeAny(str)
-    .map(reduceComb)
-    .map(combToPrettyString)
-    .getOrElseValue("")
+  combDecoder.decodeAny(str).map(reduceComb).map(combToPrettyString).getOrElseValue(""),
 );
 
 testCombDecoder("I", "I");
@@ -33,43 +26,37 @@ testCombReducerWorks("SKK", "I");
 testCombReducerWorks("SK(S(SS)S)", "I");
 testCombReducerWorks("SK(S(SS)S)K", "K");
 testCombReducerWorks("SSISISIS", "S(SS)S");
+testCombReducerWorks("SII(SII)", "SII(SII)");
 
 const getCombStr = (lambStr: string): string =>
   lambDecoder
     .decodeAny(lambStr)
     .map(lambToComb)
     .map(combToPrettyString)
-    .elseDo(fail)
+    .elseDo(() => {
+      throw "failed";
+    })
     .getOrElseValue("");
 
 test("combDecoder & combToPrettyString are fast for small input", () => {
-  const start = new Date().valueOf();
-  combDecoder
-    .decodeAny("S(SS)S")
-    .map(combToPrettyString)
-    .getOrElseValue("");
-  const ended = new Date().valueOf();
+  const start = performance.now();
+  combDecoder.decodeAny("S(SS)S").map(combToPrettyString).getOrElseValue("");
+  const ended = performance.now();
   expect(ended - start).toBeLessThanOrEqual(10);
 });
 
 test("combDecoder & combToPrettyString are fast for medium input", () => {
   const combStr = getCombStr(Y);
-  const start = new Date().valueOf();
-  combDecoder
-    .decodeAny(combStr)
-    .map(combToPrettyString)
-    .getOrElseValue("");
-  const ended = new Date().valueOf();
+  const start = performance.now();
+  combDecoder.decodeAny(combStr).map(combToPrettyString).getOrElseValue("");
+  const ended = performance.now();
   expect(ended - start).toBeLessThanOrEqual(50);
 });
 
 test("combDecoder & combToPrettyString are fast for big input", () => {
   const combStr = getCombStr(NUM);
-  const start = new Date().valueOf();
-  combDecoder
-    .decodeAny(combStr)
-    .map(combToPrettyString)
-    .getOrElseValue("");
-  const ended = new Date().valueOf();
+  const start = performance.now();
+  combDecoder.decodeAny(combStr).map(combToPrettyString).getOrElseValue("");
+  const ended = performance.now();
   expect(ended - start).toBeLessThanOrEqual(400);
 });
