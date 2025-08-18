@@ -56,7 +56,7 @@ export const lapplicationR = (first: string, second: string): Result<string, LAp
 
 export type Lamb = LVariable | LAbstraction | LApplication;
 
-export const lambDecoder: Decoder<Lamb> = new Decoder((value: any) => {
+export const lambDecoder: Decoder<Lamb> = new Decoder((value: string) => {
   if (typeof value !== "string") {
     const errorMsg = `I expected to find a string but instead I found ${JSON.stringify(value)}`;
     return err(errorMsg);

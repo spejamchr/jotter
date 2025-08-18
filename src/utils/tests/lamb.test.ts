@@ -1,13 +1,18 @@
+import { identity } from "jsonous";
 import { lambDecoder, lambToString, reduceLamb } from "../lamb";
 import { FIZZBUZZ, NUM, Y } from "../lambExprs";
 import testFunctionWorks from "./testFunctionWorks";
 
 const testLambDecoder = testFunctionWorks("lambDecoder & lambToString", (str: string) =>
-  lambDecoder.decodeAny(str).map(lambToString).getOrElseValue(""),
+  lambDecoder.decodeAny(str).map(lambToString).cata({ Ok: identity, Err: identity }),
 );
 
 const testLambReducerWorks = testFunctionWorks("reduceLamb", (str: string) =>
-  lambDecoder.decodeAny(str).map(reduceLamb).map(lambToString).getOrElseValue(""),
+  lambDecoder
+    .decodeAny(str)
+    .map(reduceLamb)
+    .map(lambToString)
+    .cata({ Ok: identity, Err: identity }),
 );
 
 testLambDecoder("^a.a", "^a.a");

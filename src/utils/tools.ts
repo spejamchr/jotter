@@ -87,14 +87,5 @@ export const validParens = (value: string): boolean => {
 export const hasOuterParens = (expr: string): boolean => {
   if (expr[0] !== "(" || expr.slice(-1) !== ")") return false;
 
-  let i = 1;
-  let g = 1;
-  while (i < expr.length - 1) {
-    if (expr[i] === "(") g++;
-    if (expr[i] === ")") g--;
-    if (g === 0) return false;
-    i++;
-  }
-
-  return true;
+  return validParens(expr.slice(1, expr.length - 1));
 };

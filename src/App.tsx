@@ -32,7 +32,9 @@ function App() {
         <table style={{ width: "90%" }}>
           <tbody>
             <tr>
-              <td style={{ width: "20%" }}>Lambda Expression </td>
+              <td style={{ width: "20%" }}>
+                <a href="https://en.wikipedia.org/wiki/Lambda_calculus">Lambda Expression</a>
+              </td>
               <td style={{ width: "60%" }}>
                 <input
                   style={{ width: "100%" }}
@@ -44,7 +46,11 @@ function App() {
             </tr>
 
             <tr>
-              <td>Combinatory Logic</td>
+              <td>
+                <a href="https://en.wikipedia.org/wiki/SKI_combinator_calculus">
+                  Combinatory Logic
+                </a>
+              </td>
               <td>
                 <input
                   style={{ width: "100%" }}
@@ -56,7 +62,9 @@ function App() {
             </tr>
 
             <tr>
-              <td>Jot </td>
+              <td>
+                <a href="https://en.wikipedia.org/wiki/Iota_and_Jot#Jot">Jot</a>
+              </td>
               <td>
                 <input
                   style={{ width: "100%" }}
@@ -68,7 +76,7 @@ function App() {
             </tr>
 
             <tr>
-              <td>Decimal Jot </td>
+              <td>Decimal Jot</td>
               <td>
                 <input
                   style={{ width: "100%" }}
