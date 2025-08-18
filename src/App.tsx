@@ -88,7 +88,9 @@ function App() {
                 {basis
                   .decStr()
                   .map((s) => `(length: ${s.length})`)
-                  .getOrElseValue("")}
+                  .getOrElse(
+                    () => `(length: ~${Math.ceil(Math.log10(2) * basis.jotStr().length)})`,
+                  )}
               </td>
             </tr>
           </tbody>

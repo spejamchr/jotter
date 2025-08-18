@@ -1,3 +1,4 @@
+import { safeShort } from "./lamb";
 import { randWord } from "./tools";
 
 // Mangles variable names in expressions
@@ -154,6 +155,9 @@ export const YES = `((${m(CONS)} ${m(ZERO)}) ((${m(CONS)} ${m(ONE)}) ((${m(CONS)
 export const FIZZ = `((${m(CONS)} ${m(F_)}) ((${m(CONS)} ${m(I_)}) ((${m(CONS)} ${m(Z_)}) ((${m(
   CONS,
 )} ${m(Z_)}) ${m(EMPTY_LIST)}))))`;
+
+const EMOJI = `((${m(CONS)} ${m(NUM)}) ${m(EMPTY_LIST)})`;
+console.log(safeShort(EMOJI));
 
 export const BUZZ = `((${m(CONS)} ${m(B_)}) ((${m(CONS)} ${m(U_)}) ((${m(CONS)} ${m(Z_)}) ((${m(
   CONS,
